@@ -79,8 +79,8 @@ func onOff(on bool, yes, no string) string {
 	return no
 }
 
-// chatMenu is what C opens after picking a chat: every chat-level action, one key each.
-func (m *Model) chatMenu(ch beeper.Chat) {
+// chatActions is every chat-level action, one key each. C and right-click both use it.
+func (m *Model) chatActions(ch beeper.Chat) []chatAction {
 	unread := ch.UnreadCount > 0 || ch.IsMarkedUnread
 	acts := []chatAction{
 		{"o", "open", func(m *Model, ch beeper.Chat) tea.Cmd { return m.openChat(ch, "") }},
@@ -108,7 +108,11 @@ func (m *Model) chatMenu(ch beeper.Chat) {
 			})
 		}})
 	}
+	return acts
+}
 
+func (m *Model) chatMenu(ch beeper.Chat) {
+	acts := m.chatActions(ch)
 	items := make([]pickItem, len(acts))
 	byKey := map[string]chatAction{}
 	for i, a := range acts {
@@ -165,7 +169,7 @@ func (m *Model) edit(msg beeper.Message) tea.Cmd {
 	mm := msg
 	m.editing, m.replyTo = &mm, nil
 	m.compose.SetValue(plainText(msg.Text))
-	m.compose.CursorEnd()
+	m.compose.MoveToEnd()
 	return m.startInsert()
 }
 

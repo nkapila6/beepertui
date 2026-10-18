@@ -50,15 +50,19 @@ func desktopNotification(title, body string) string {
 	return ""
 }
 
-// withToast draws the toast over the finished frame.
-func (m *Model) withToast(frame string) string {
-	if m.toast == nil {
+// withOverlays draws the floating bits (toast, link hints, right-click menu)
+// over the finished frame. With none showing, the frame goes out untouched.
+func (m *Model) withOverlays(frame string) string {
+	var layers []*lipgloss.Layer
+	if m.toast != nil {
+		box := stOverlay.BorderForeground(colSelf).Render(stSelf.Render("✓ ") + stText.Render(truncate(m.toast.text, max(10, m.w/2))))
+		x := max(0, m.w-lipgloss.Width(box)-1)
+		layers = append(layers, lipgloss.NewLayer(box).X(x).Y(1).Z(1))
+	}
+	layers = append(layers, m.hintLayers()...)
+	layers = append(layers, m.menuLayers()...)
+	if len(layers) == 0 {
 		return frame
 	}
-	box := stOverlay.BorderForeground(colSelf).Render(stSelf.Render("✓ ") + stText.Render(truncate(m.toast.text, max(10, m.w/2))))
-	x := max(0, m.w-lipgloss.Width(box)-1)
-	return lipgloss.NewCompositor(
-		lipgloss.NewLayer(frame),
-		lipgloss.NewLayer(box).X(x).Y(1).Z(1),
-	).Render()
+	return lipgloss.NewCompositor(append([]*lipgloss.Layer{lipgloss.NewLayer(frame)}, layers...)...).Render()
 }

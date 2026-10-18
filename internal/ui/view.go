@@ -17,7 +17,7 @@ const gutter = 3
 // layout
 
 func (m *Model) composeHeight() int {
-	h := 3
+	h := 2 + m.composeLines()
 	if m.replyTo != nil || m.editing != nil || m.attach != "" {
 		h++
 	}
@@ -59,7 +59,7 @@ func (m *Model) msgTextWidth() int { return max(10, m.msgWidth()-2-gutter-1) }
 func (m *Model) blockHeight(i int) int { return len(m.msgBlock(i)) }
 
 // msgSpace is the message pane height minus the chat title row.
-func (m *Model) msgSpace() int { return max(1, m.bodyHeight()-1) }
+func (m *Model) msgSpace() int { return max(1, m.bodyHeight()) }
 
 func (m *Model) msgRange() (int, int) {
 	if len(m.msgs) == 0 {
@@ -101,7 +101,7 @@ func (m *Model) fixMsgScroll() {
 // rendering
 
 func (m *Model) View() tea.View {
-	v := tea.NewView(m.withToast(m.render()))
+	v := tea.NewView(m.withOverlays(m.render()))
 	v.AltScreen = true
 	if m.mouse {
 		v.MouseMode = tea.MouseModeCellMotion
@@ -132,8 +132,8 @@ func (m *Model) render() string {
 	case modePopup:
 		body = m.renderPopup()
 	default:
-		chats := m.paneStyle(paneChats).Width(m.chatWidth()).Height(m.bodyHeight() + 2).Render(m.renderChats())
-		msgs := m.paneStyle(paneMsgs).Width(m.msgWidth()).Height(m.bodyHeight() + 2).Render(m.renderMsgs())
+		chats := titledPane(m.paneStyle(paneChats), m.chatWidth(), m.bodyHeight()+2, m.chatsTitle(), m.renderChats())
+		msgs := titledPane(m.paneStyle(paneMsgs), m.msgWidth(), m.bodyHeight()+2, m.msgsTitle(), m.renderMsgs())
 		body = lipgloss.JoinHorizontal(lipgloss.Top, chats, msgs)
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, m.renderHeader(), body, m.renderCompose(), m.renderStatus())
@@ -162,15 +162,45 @@ func (m *Model) renderHeader() string {
 		parts = append(parts, stAccent.Render(" /"+m.query))
 	}
 	left := strings.Join(parts, "")
-	state := stDim.Render("polling")
-	if m.live {
-		state = lipgloss.NewStyle().Foreground(colSelf).Render("live")
-	}
+	right := ""
 	if m.inflight > 0 {
-		state = stDim.Render("... ") + state
+		right = stAccent.Render(spinFrames[m.spin%len(spinFrames)]) + " "
 	}
-	pad := max(1, m.w-lipgloss.Width(left)-lipgloss.Width(state)-1)
-	return left + strings.Repeat(" ", pad) + state
+	pad := max(1, m.w-lipgloss.Width(left)-lipgloss.Width(right))
+	return left + strings.Repeat(" ", pad) + right
+}
+
+func (m *Model) chatsTitle() string {
+	st := stDim
+	if m.focus == paneChats {
+		st = stAccent.Bold(true)
+	}
+	t := "Chats " + stDim.Render("· "+inboxes[m.inbox])
+	unread := 0
+	for _, ch := range m.chats {
+		if ch.UnreadCount > 0 && !ch.IsMuted {
+			unread++
+		}
+	}
+	if unread > 0 {
+		t += stDim.Render(fmt.Sprintf(" · %d unread", unread))
+	}
+	return st.Render("Chats ") + strings.TrimPrefix(t, "Chats ")
+}
+
+func (m *Model) msgsTitle() string {
+	if m.cur == nil {
+		return stDim.Render("Messages")
+	}
+	st := stDim.Bold(true)
+	if m.focus == paneMsgs {
+		st = stAccent.Bold(true)
+	}
+	t := st.Render(oneLine(m.cur.Title)) + stDim.Render(" · "+m.netLabel(m.cur.Network)+" "+m.cur.Network)
+	if m.cur.IsMuted {
+		t += stDim.Render(" · " + m.icon("muted", "muted"))
+	}
+	return t
 }
 
 func (m *Model) renderChats() string {
@@ -208,15 +238,15 @@ func (m *Model) renderChats() string {
 
 		var right []string
 		if ch.IsPinned {
-			right = append(right, "^")
+			right = append(right, m.icon("pinned", "^"))
 		}
 		if ch.IsMuted {
-			right = append(right, "~")
+			right = append(right, m.icon("muted", "~"))
 		}
 		if ch.Reminder != nil {
-			right = append(right, "!")
+			right = append(right, m.icon("remind", "!"))
 		}
-		right = append(right, netShort(ch.Network))
+		right = append(right, m.netLabel(ch.Network))
 		rs := paint(stDim, strings.Join(right, " "))
 		if n := ch.UnreadCount; n > 0 || ch.IsMarkedUnread {
 			badge := " * "
@@ -225,12 +255,24 @@ func (m *Model) renderChats() string {
 			}
 			rs = stUnread.Render(badge) + paint(plain, " ") + rs
 		}
-		tw := max(1, w-2-lipgloss.Width(rs)-1)
+		// avatar column, 4 wide plus a space, when enabled
+		av := [2]string{"", ""}
+		aw := 0
+		if m.showAvatars {
+			av = m.avatarLines(ch)
+			av[0] += paint(plain, " ")
+			av[1] += paint(plain, " ")
+			aw = avatarCols + 1
+		}
+		tw := max(1, w-2-aw-lipgloss.Width(rs)-1)
 		titleSt := stText
-		if ch.UnreadCount > 0 || ch.IsMarkedUnread {
+		switch {
+		case ch.IsMuted:
+			titleSt = stDim // muted chats fade back
+		case ch.UnreadCount > 0 || ch.IsMarkedUnread:
 			titleSt = stBold
 		}
-		l1 := g + paint(titleSt, padRight(truncate(oneLine(ch.Title), tw), tw)+" ") + rs
+		l1 := g + av[0] + paint(titleSt, padRight(truncate(oneLine(ch.Title), tw), tw)+" ") + rs
 
 		prev := ""
 		ts := ""
@@ -256,8 +298,8 @@ func (m *Model) renderChats() string {
 			}
 			ts = shortTime(ch.LastActivity)
 		}
-		pw := max(1, w-2-lipgloss.Width(ts)-1)
-		l2 := paint(plain, "  ") + paint(stDim, padRight(truncate(prev, pw), pw)+" "+ts)
+		pw := max(1, w-2-aw-lipgloss.Width(ts)-1)
+		l2 := paint(plain, "  ") + av[1] + paint(stDim, padRight(truncate(prev, pw), pw)+" "+ts)
 
 		rows = append(rows, l1, l2)
 	}
@@ -267,7 +309,8 @@ func (m *Model) renderChats() string {
 type msgRow struct {
 	idx  int // message index, -1 for padding above short chats
 	text string
-	top  bool
+	top  bool // first line of the message itself, where labels go
+	lead bool // day rule, "new" rule or spacing above the message
 }
 
 // msgRows is the message pane line by line, exactly msgSpace() rows. The mouse
@@ -279,17 +322,26 @@ func (m *Model) msgRows() []msgRow {
 	first, last := m.msgRange()
 	var rows []msgRow
 	for i := first; i <= last; i++ {
-		for j, l := range m.msgBlock(i) {
-			rows = append(rows, msgRow{i, l, j == 0})
+		lines, pre := m.msgBlockParts(i)
+		for j, l := range lines {
+			rows = append(rows, msgRow{idx: i, text: l, top: j == pre, lead: j < pre})
 		}
 	}
 	space := m.msgSpace()
 	if len(rows) > space {
 		rows = rows[len(rows)-space:]
-		rows[0].top = true
-		// a cropped block's label goes on its first visible line
-		for k := 1; k < len(rows) && rows[k].idx == rows[0].idx; k++ {
-			rows[k].top = false
+		// a cropped block's label goes on its first visible non-lead line
+		hasTop := false
+		for k := 0; k < len(rows) && rows[k].idx == rows[0].idx; k++ {
+			hasTop = hasTop || rows[k].top
+		}
+		if !hasTop {
+			for k := 0; k < len(rows) && rows[k].idx == rows[0].idx; k++ {
+				if !rows[k].lead {
+					rows[k].top = true
+					break
+				}
+			}
 		}
 	}
 	pad := make([]msgRow, space-len(rows))
@@ -303,12 +355,11 @@ func (m *Model) renderMsgs() string {
 	if m.cur == nil {
 		return stDim.Render(" pick a chat (enter, or s for labels)")
 	}
-	title := stBold.Render(" "+truncate(oneLine(m.cur.Title), m.msgWidth()-20)) + stDim.Render("  "+m.cur.Network)
 	if len(m.msgs) == 0 {
-		return title + "\n" + stDim.Render(" no messages")
+		return stDim.Render(" no messages")
 	}
 	rows := m.msgRows()
-	out := []string{title}
+	var out []string
 	for _, r := range rows {
 		if r.idx < 0 {
 			out = append(out, "")
@@ -320,7 +371,7 @@ func (m *Model) renderMsgs() string {
 			if l, ok := m.flash.label(paneMsgs, r.idx); ok && r.top {
 				g = stLabel.Render(padRight(l, 2)) + " "
 			}
-		case r.idx == m.msgCur && m.focus == paneMsgs:
+		case r.idx == m.msgCur && m.focus == paneMsgs && !r.lead:
 			g = stCursor.Render("▌") + "  "
 		}
 		out = append(out, g+r.text)
@@ -331,37 +382,57 @@ func (m *Model) renderMsgs() string {
 // msgBlock renders one message without the gutter. Consecutive messages from the
 // same sender within a few minutes skip the header.
 func (m *Model) msgBlock(i int) []string {
+	lines, _ := m.msgBlockParts(i)
+	return lines
+}
+
+// msgBlockParts renders one message plus whatever goes above it (day rule,
+// "new" rule, spacing). pre is how many of the lines are that lead-in, so the
+// cursor bar and flash label can skip them.
+func (m *Model) msgBlockParts(i int) (lines []string, pre int) {
 	msg := m.msgs[i]
 	w := m.msgTextWidth()
-	var lines []string
+
+	newDay := i == 0 || !sameDay(m.msgs[i-1].Timestamp, msg.Timestamp)
+	if newDay {
+		lines = append(lines, rule(dayLabel(msg.Timestamp), w, stDim))
+	}
+	if i == m.newMarker() {
+		lines = append(lines, rule("new", w, lipgloss.NewStyle().Foreground(colErr).Bold(true)))
+	}
 
 	showHeader := true
 	if i > 0 {
 		prev := m.msgs[i-1]
-		showHeader = prev.SenderID != msg.SenderID || msg.Timestamp.Sub(prev.Timestamp) > 5*time.Minute
+		showHeader = newDay || prev.SenderID != msg.SenderID || msg.Timestamp.Sub(prev.Timestamp) > 5*time.Minute
 	}
+	if showHeader && !m.compact && i > 0 && len(lines) == 0 {
+		lines = append(lines, "")
+	}
+	pre = len(lines)
 	if showHeader {
 		who := firstNonEmpty(msg.SenderName, msg.SenderID)
-		st := stOther
 		if msg.IsSender {
-			who, st = "you", stSelf
+			who = "you"
 		}
-		hdr := st.Render(truncate(who, w-14)) + " " + stDim.Render(shortTime(msg.Timestamp))
+		hdr := senderStyle(msg).Render(truncate(who, w-14)) + " " + stDim.Render(shortTime(msg.Timestamp))
 		lines = append(lines, hdr)
 	}
 
 	if msg.LinkedMessageID != "" {
-		ref := "reply"
+		ref := stDim.Render("↪ reply")
 		for _, o := range m.msgs {
 			if o.ID == msg.LinkedMessageID {
-				ref = firstNonEmpty(o.SenderName, "you") + ": " + oneLine(plainText(o.Text))
+				who := firstNonEmpty(o.SenderName, "?")
 				if o.IsSender {
-					ref = "you: " + oneLine(plainText(o.Text))
+					who = "you"
 				}
+				who = truncate(who, w/3)
+				ref = stDim.Render("↪ ") + senderStyle(o).Bold(false).Render(who) + stDim.Render(": "+truncate(oneLine(plainText(o.Text)), max(1, w-4-lipgloss.Width(who))))
 				break
 			}
 		}
-		lines = append(lines, stDim.Render("↪ "+truncate(ref, w-2)))
+		lines = append(lines, ref)
 	}
 
 	switch {
@@ -393,8 +464,17 @@ func (m *Model) msgBlock(i int) []string {
 		}
 		lines = append(lines, stDim.Render(truncate(label, w)))
 	}
-	if len(lines) == 0 || (showHeader && len(lines) == 1 && msg.Text == "" && len(msg.Attachments) == 0 && !msg.IsDeleted) {
+	if len(lines) == pre || (showHeader && len(lines) == pre+1 && msg.Text == "" && len(msg.Attachments) == 0 && !msg.IsDeleted) {
 		lines = append(lines, stDim.Render("["+strings.ToLower(firstNonEmpty(msg.Type, "message"))+"]"))
+	}
+
+	if t := m.tick(msg); t != "" && len(lines) > pre {
+		last := len(lines) - 1
+		if lipgloss.Width(lines[last])+lipgloss.Width(t) <= w {
+			lines[last] += t
+		} else {
+			lines = append(lines, t)
+		}
 	}
 
 	if len(msg.Reactions) > 0 {
@@ -406,17 +486,27 @@ func (m *Model) msgBlock(i int) []string {
 			}
 			counts[r.ReactionKey]++
 		}
+		mine := map[string]bool{}
+		for _, r := range msg.Reactions {
+			if m.selfIDs[r.ParticipantID] {
+				mine[r.ReactionKey] = true
+			}
+		}
 		var rs []string
 		for _, k := range order {
 			s := k
 			if counts[k] > 1 {
 				s += fmt.Sprintf(" %d", counts[k])
 			}
-			rs = append(rs, stReaction.Render(" "+s+" "))
+			st := stReaction
+			if mine[k] {
+				st = stReactionMine
+			}
+			rs = append(rs, st.Render(" "+s+" "))
 		}
 		lines = append(lines, strings.Join(rs, " "))
 	}
-	return lines
+	return lines, pre
 }
 
 func (m *Model) renderCompose() string {
@@ -459,24 +549,31 @@ func (m *Model) renderCompose() string {
 }
 
 func (m *Model) renderStatus() string {
-	var badge string
+	var mode lipgloss.Style
+	var name string
 	switch m.mode {
 	case modeInsert:
-		badge = stModeIns.Render("INSERT")
+		mode, name = stModeIns, "INSERT"
 	case modeFlash:
-		badge = stModeAlt.Render(strings.ToUpper(flashVerbs[m.flash.action]))
-	case modeLine:
-		return m.line.View()
-	case modePicker:
+		mode, name = stModeAlt, strings.ToUpper(flashVerbs[m.flash.action])
+	case modeLine, modePicker:
 		return m.line.View()
 	case modeConfirm:
 		return stModeAlt.Render("CONFIRM") + " " + m.confirmText
 	case modePopup:
-		badge = stModeAlt.Render("VIEW")
+		mode, name = stModeAlt, "VIEW"
+	case modeLinks:
+		mode, name = stModeAlt, "LINKS"
+	case modeMenu:
+		mode, name = stModeAlt, "MENU"
 	default:
-		badge = stMode.Render("NORMAL")
+		mode, name = stMode, "NORMAL"
 	}
+
 	msg := m.status
+	if m.mode == modeLinks {
+		msg = "type a label, then o opens or y yanks, esc cancels"
+	}
 	if m.mode == modeFlash {
 		msg = "type a label"
 		switch m.flash.action {
@@ -488,11 +585,72 @@ func (m *Model) renderStatus() string {
 		}
 		msg += ", esc cancels"
 	}
-	st := stDim
+	msgSt := stDim
 	if m.isErr {
-		st = stErr
+		msgSt = stErr
 	}
-	return badge + " " + st.Render(truncate(msg, m.w-12))
+
+	// right side: connection and unread total
+	segBg := colSel
+	onSeg := lipgloss.NewStyle().Background(segBg)
+	// every piece carries the segment background, nested styles would reset it
+	conn := onSeg.Foreground(colSelf).Render(m.icon("dot", "●")) + onSeg.Foreground(colText).Render(" live")
+	if !m.live {
+		conn = onSeg.Foreground(colOther).Render(m.icon("dot", "●")) + onSeg.Foreground(colText).Render(" polling")
+	}
+	unread := 0
+	for _, ch := range m.chats {
+		if !ch.IsMuted {
+			unread += ch.UnreadCount
+		}
+	}
+
+	left := m.segments([]segment{
+		{name, mode},
+		{m.statusChat(), lipgloss.NewStyle().Background(segBg)},
+	}, false)
+	rightSegs := []segment{{conn, onSeg}}
+	if unread > 0 {
+		rightSegs = append(rightSegs, segment{fmt.Sprintf("%d unread", unread), stMode})
+	}
+	right := m.segments(rightSegs, true)
+
+	room := m.w - lipgloss.Width(left) - lipgloss.Width(right) - 2
+	mid := " " + msgSt.Render(truncate(msg, max(0, room)))
+	pad := max(0, m.w-lipgloss.Width(left)-lipgloss.Width(mid)-lipgloss.Width(right))
+	return left + mid + strings.Repeat(" ", pad) + right
+}
+
+func (m *Model) statusChat() string {
+	if m.cur == nil {
+		return "no chat"
+	}
+	return truncate(oneLine(m.cur.Title), 28) + " " + m.netLabel(m.cur.Network)
+}
+
+type segment struct {
+	text string
+	st   lipgloss.Style
+}
+
+// segments draws lualine-style blocks. With a nerd font they get rounded
+// powerline caps, otherwise they just butt up against each other.
+func (m *Model) segments(segs []segment, rightSide bool) string {
+	var b strings.Builder
+	for i, sg := range segs {
+		bg := sg.st.GetBackground()
+		if m.nerdFont && rightSide {
+			b.WriteString(lipgloss.NewStyle().Foreground(bg).Render("\uE0B6"))
+		}
+		b.WriteString(sg.st.Padding(0, 1).Render(sg.text))
+		if m.nerdFont && !rightSide {
+			b.WriteString(lipgloss.NewStyle().Foreground(bg).Render("\uE0B4"))
+		}
+		if !m.nerdFont && i < len(segs)-1 {
+			b.WriteString(" ")
+		}
+	}
+	return b.String()
 }
 
 func (m *Model) overlayBox(title string, lines []string) string {

@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -93,6 +94,7 @@ type thumb struct {
 	// kitty
 	id         uint32
 	w, h       int
+	png        []byte // kept so the image can be re-sent after the terminal drops it
 	sent       bool
 	placedCols int
 	placedRows int
@@ -157,7 +159,7 @@ func (m *Model) loadThumbs() tea.Cmd {
 					}
 					var cmd tea.Cmd
 					if mode == imagesKitty {
-						t.w, t.h, t.sent = w, h, true
+						t.w, t.h, t.sent, t.png = w, h, true, png
 						cmd = tea.Raw(kittyTransmit(id, png))
 					} else {
 						t.img = img
@@ -360,4 +362,41 @@ func halfBlocks(img image.Image, maxCols, maxRows int) []string {
 		lines[y] = sb.String()
 	}
 	return lines
+}
+
+type resizedMsg struct{ seq int }
+
+// afterResize waits for resizing to settle, then re-sends every image. Some
+// terminals (Ghostty especially) drop kitty placements on resize, and the
+// placeholder cells then draw nothing.
+func (m *Model) afterResize() tea.Cmd {
+	if m.imageMode != imagesKitty {
+		return nil
+	}
+	m.resizeSeq++
+	seq := m.resizeSeq
+	return tea.Tick(250*time.Millisecond, func(time.Time) tea.Msg { return resizedMsg{seq} })
+}
+
+func (m *Model) resendImages() tea.Cmd {
+	var b strings.Builder
+	w := m.msgTextWidth()
+	for _, t := range m.thumbs {
+		if !t.sent || len(t.png) == 0 {
+			continue
+		}
+		c, r := kittySize(t, w, m.cellAspect)
+		b.WriteString(kittyTransmit(t.id, t.png))
+		b.WriteString(kittyPlace(t.id, c, r))
+		t.placedCols, t.placedRows = c, r
+	}
+	if p := m.popup; p != nil && p.id != 0 && len(p.png) > 0 {
+		b.WriteString(kittyTransmit(p.id, p.png))
+		p.cols, p.rows = 0, 0 // force placePopup to place again
+	}
+	b.WriteString(m.avatarResend())
+	if b.Len() == 0 {
+		return nil
+	}
+	return tea.Sequence(tea.Raw(b.String()), m.placePopup())
 }

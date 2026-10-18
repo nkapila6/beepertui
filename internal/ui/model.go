@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
@@ -30,6 +31,8 @@ const (
 	modePicker
 	modeHelp
 	modePopup
+	modeLinks
+	modeMenu
 )
 
 // pollEvery backstops bridges that never emit websocket events (iMessage, as of 2026).
@@ -68,7 +71,7 @@ type Model struct {
 	selfIDs    map[string]bool
 
 	// compose
-	compose textinput.Model
+	compose textarea.Model
 	replyTo *beeper.Message
 	editing *beeper.Message
 	attach  string
@@ -99,7 +102,21 @@ type Model struct {
 
 	toast    *toast
 	toastSeq int
-	helpOff  int
+
+	nerdFont bool
+	compact  bool
+	spinning bool
+	spin     int
+	readMark string // last read sort key when the chat was opened, for the "new" line
+
+	resizeSeq int
+
+	hints linkHints
+	menu  *ctxMenu
+
+	avatars     map[string]*avatar
+	showAvatars bool
+	helpOff     int
 
 	// confirm
 	confirmText string
@@ -116,10 +133,7 @@ type Model struct {
 }
 
 func New(c *beeper.Client) *Model {
-	ci := textinput.New()
-	ci.Prompt = ""
-	ci.Placeholder = "i to write a message"
-	ci.CharLimit = 0
+	ci := newCompose()
 
 	li := textinput.New()
 	li.CharLimit = 0
@@ -139,6 +153,9 @@ func New(c *beeper.Client) *Model {
 		mouse:      mouseDefault(),
 
 		mentionDismissed: -1,
+		nerdFont:         nerdFontDefault(),
+		avatars:          map[string]*avatar{},
+		showAvatars:      true,
 	}
 	go c.Stream(ctx, m.events)
 	return m
@@ -158,12 +175,17 @@ type (
 // run does fn off the UI goroutine. fn must not touch the model; put state changes in the returned func.
 func (m *Model) run(status string, fn func(ctx context.Context) (func(*Model) tea.Cmd, error)) tea.Cmd {
 	m.inflight++
-	return func() tea.Msg {
+	work := func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 		then, err := fn(ctx)
 		return doneMsg{status: status, err: err, then: then}
 	}
+	if !m.spinning {
+		m.spinning = true
+		return tea.Batch(work, spinTick())
+	}
+	return work
 }
 
 func (m *Model) waitEvent() tea.Cmd {
@@ -190,7 +212,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.line.SetWidth(max(10, m.w-20))
 		m.fixChatScroll()
 		m.fixMsgScroll()
-		return m, tea.Batch(m.placeImages(), m.placePopup())
+		return m, tea.Batch(m.placeImages(), m.placePopup(), m.afterResize())
+
+	case resizedMsg:
+		if msg.seq != m.resizeSeq {
+			return m, nil // still resizing
+		}
+		return m, m.resendImages()
 
 	case doneMsg:
 		m.inflight = max(0, m.inflight-1)
@@ -226,7 +254,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case tea.KeyPressMsg:
-		return m, m.handleKey(msg)
+		return m, tea.Batch(m.handleKey(msg), m.loadAvatars())
+
+	case spinMsg:
+		m.spin++
+		if m.inflight > 0 {
+			return m, spinTick()
+		}
+		m.spinning = false
+		return m, nil
 
 	case toastDoneMsg:
 		if m.toast != nil && m.toast.seq == msg.seq {
@@ -235,7 +271,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseMsg:
-		return m, m.handleMouse(msg)
+		return m, tea.Batch(m.handleMouse(msg), m.loadAvatars())
 
 	case tea.PasteMsg:
 		// a file dragged into the terminal arrives as its path
@@ -326,7 +362,7 @@ func (m *Model) loadChats() tea.Cmd {
 				}
 			}
 			m.fixChatScroll()
-			return nil
+			return m.loadAvatars()
 		}, nil
 	})
 }
@@ -371,6 +407,12 @@ func (m *Model) openChat(ch beeper.Chat, jumpTo string) tea.Cmd {
 		m.mention, m.mentioned = nil, nil
 		if ch.Draft != nil {
 			m.compose.SetValue(ch.Draft.Text)
+		}
+	}
+	if m.cur == nil || m.cur.ID != ch.ID {
+		m.readMark = ""
+		if ch.UnreadCount > 0 {
+			m.readMark = ch.LastReadKey
 		}
 	}
 	m.cur = &ch

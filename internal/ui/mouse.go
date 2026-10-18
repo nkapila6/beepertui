@@ -22,6 +22,12 @@ func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 	ms := msg.Mouse()
 	_, wheel := msg.(tea.MouseWheelMsg)
 	_, click := msg.(tea.MouseClickMsg)
+	if m.mode == modeMenu && click {
+		return m.menuMouse(ms.X, ms.Y)
+	}
+	if click && ms.Button == tea.MouseRight {
+		return m.rightClick(ms.X, ms.Y)
+	}
 	if !wheel && !(click && ms.Button == tea.MouseLeft) {
 		return nil
 	}
@@ -56,7 +62,7 @@ func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 			m.pick.cur = clamp(m.pick.cur+dir, 0, len(m.pick.shown)-1)
 		}
 		return nil
-	case modeFlash, modeConfirm, modeLine:
+	case modeFlash, modeConfirm, modeLine, modeLinks, modeMenu:
 		return nil
 	}
 
@@ -104,10 +110,14 @@ func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 		m.fixChatScroll()
 		return m.openChat(m.chats[i], "")
 	default:
-		row := ms.Y - 3
+		row := ms.Y - 2
 		rows := m.msgRows()
 		if row < 0 || row >= len(rows) || rows[row].idx < 0 {
 			return nil
+		}
+		// a click on a link opens it
+		if u, ok := m.linkAt(ms.X, ms.Y); ok {
+			return m.openLink(u)
 		}
 		i := rows[row].idx
 		m.focus = paneMsgs
@@ -136,5 +146,46 @@ func (m *Model) clickTab(x int) tea.Cmd {
 		}
 		pos += w
 	}
+	return nil
+}
+
+// rightClick opens a context menu for whatever is under the pointer.
+func (m *Model) rightClick(x, y int) tea.Cmd {
+	if m.mode != modeNormal && m.mode != modeInsert {
+		return nil
+	}
+	if m.mode == modeInsert {
+		m.mode = modeNormal
+		m.compose.Blur()
+	}
+	if y < 2 || y >= m.composeTop() {
+		return nil
+	}
+	if x < m.chatWidth() {
+		i := m.chatOff + (y-2)/2
+		if i >= len(m.chats) || i > m.chatOff+m.chatRows()-1 {
+			return nil
+		}
+		m.chatCur = i
+		m.focus = paneChats
+		m.fixChatScroll()
+		m.openMenu(x, y, m.chats[i].Title, m.chatMenuItems(m.chats[i]))
+		return nil
+	}
+	rows := m.msgRows()
+	row := y - 2
+	if row < 0 || row >= len(rows) || rows[row].idx < 0 {
+		return nil
+	}
+	i := rows[row].idx
+	m.focus = paneMsgs
+	m.msgCur = i
+	m.fixMsgScroll()
+	link, _ := m.linkAt(x, y)
+	who := firstNonEmpty(m.msgs[i].SenderName, "message")
+	if m.msgs[i].IsSender {
+		who = "your message"
+	}
+	m.openMenu(x, y, who, m.messageMenu(i, link))
 	return nil
 }

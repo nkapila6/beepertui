@@ -31,6 +31,7 @@ type popup struct {
 	id         uint32
 	w, h       int
 	cols, rows int
+	png        []byte
 
 	// blocks
 	img image.Image
@@ -118,7 +119,7 @@ func (m *Model) openPopup(msgIdx int, a beeper.Attachment) tea.Cmd {
 			if err != nil {
 				return nil
 			}
-			p.w, p.h, p.img = w, h, img
+			p.w, p.h, p.img, p.png = w, h, img, png
 			if mode == imagesKitty {
 				return tea.Sequence(tea.Raw(kittyTransmit(p.id, png)), m.placePopup())
 			}

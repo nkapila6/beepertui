@@ -30,6 +30,10 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		return m.helpKey(key)
 	case modePopup:
 		return m.popupKey(key)
+	case modeLinks:
+		return m.linkKey(key)
+	case modeMenu:
+		return m.menuKey(key)
 	}
 	return m.normalKey(key)
 }
@@ -59,6 +63,9 @@ func (m *Model) ctrlC() tea.Cmd {
 	case modePopup:
 		m.mode = modeNormal
 		return m.closePopupImage()
+	case modeMenu:
+		m.closeMenu()
+		return nil
 	}
 	m.mode = modeNormal
 	return nil
@@ -135,6 +142,9 @@ func (m *Model) normalKey(key string) tea.Cmd {
 		return nil
 	case "c":
 		m.startFlash('c')
+		return nil
+	case "f":
+		m.startLinkHints()
 		return nil
 	case "C":
 		m.startFlash('C')

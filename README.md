@@ -42,9 +42,10 @@ beepertui
 | `h` `l` `tab` | switch between chats and messages |
 | `J` `K` | next / previous chat, from either pane |
 | `enter` | open chat / start writing |
-| `i` `a` | write. `enter` sends, `esc` leaves, `C-v` pastes an image, `C-c` clears, `@` mentions someone |
+| `i` `a` | write. `enter` sends, `shift+enter` (or `alt+enter`, `C-j`) for a new line, `esc` leaves, `C-v` pastes an image, `C-c` clears, `@` mentions someone |
 | `s` | flash jump anywhere: labels every chat and message on screen at once |
 | `c` | flash just the chats and switch to one, from either pane |
+| `f` | link hints: every link on screen gets a label, pick one, then `o` opens it in the browser or `y` yanks it |
 | `cc` | chat list popup: every chat across all inboxes, type to fuzzy filter, `enter` opens (no match searches all of Beeper). Also `:chats` |
 | `C` | flash a chat, then a one-key menu: open, pin, mute, archive, low priority, read/unread, remind, info. `CC` = current chat |
 | `y` `r` `R` `e` `x` `o` `U` | flash pick, then yank / reply / react / edit / delete / open / unreact |
@@ -64,7 +65,7 @@ beepertui
 
 ## Mouse
 
-Click a chat to open it, click a message to select it (click an image again to view it), click an inbox tab to switch, click the compose box to write. The wheel scrolls chats, messages, and images in the viewer. Mouse capture means you need shift (or option, depending on your terminal) to select text. `:mouse off` turns it off, or set `BEEPERTUI_MOUSE=off`.
+Click a chat to open it, click a message to select it (click an image again to view it), click a link to open it, click an inbox tab to switch, click the compose box to write. Right-click a chat or message for a menu of everything you can do with it. The wheel scrolls chats, messages, and images in the viewer. Mouse capture means you need shift (or option, depending on your terminal) to select text. `:mouse off` turns it off, or set `BEEPERTUI_MOUSE=off`.
 
 ## Mentions
 
@@ -86,6 +87,12 @@ Images and video posters show inline. In Ghostty and kitty they're real images, 
 - Text that matches no emoji, or anything sent with `alt+enter`, goes out as a text reaction. Other Beeper clients display it as is.
 
 Commands worth knowing: `:search <words>` searches every message across every network, `:attach ~/file.pdf` stages a file for the next message, `:remind 2h`, `:expiry 24h` for disappearing messages, `:label`, `:accounts`, `:info`.
+
+## Looks
+
+Senders get their own colour, days get a divider, and there's a `── new ──` line where you left off. Your messages show a ✓ when sent and ✓✓ once seen. Chats show their avatar: the real one in Ghostty and kitty, coloured initials elsewhere.
+
+With a [Nerd Font](https://www.nerdfonts.com) installed, set `BEEPERTUI_NERDFONT=1` (or `:icons on`) to get network logos, nicer status icons and a lualine-style status line. `:avatars`, `:compact` and `:images` toggle the rest.
 
 ## Themes and tuios
 

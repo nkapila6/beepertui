@@ -1,6 +1,9 @@
 package beeper
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type User struct {
 	ID          string `json:"id"`
@@ -41,6 +44,8 @@ type Chat struct {
 	IsArchived     bool         `json:"isArchived"`
 	IsLowPriority  bool         `json:"isLowPriority"`
 	IsMarkedUnread bool         `json:"isMarkedUnread"`
+	LastReadKey    string       `json:"lastReadMessageSortKey"`
+	ImgURL         string       `json:"imgURL"`
 	Mentions       int          `json:"unreadMentionsCount"`
 	Description    string       `json:"description"`
 	ExpirySeconds  int          `json:"messageExpirySeconds"`
@@ -118,6 +123,14 @@ type Message struct {
 	LinkedMessageID string        `json:"linkedMessageID"`
 	Links           []LinkPreview `json:"links"`
 	Reactions       []Reaction    `json:"reactions"`
+	SendStatus      *SendStatus   `json:"sendStatus"`
+	// Seen is a bool, a timestamp, or a map of participant -> either, depending on the network
+	Seen json.RawMessage `json:"seen"`
+}
+
+type SendStatus struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
 }
 
 type page[T any] struct {

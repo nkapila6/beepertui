@@ -23,9 +23,16 @@ type mentionState struct {
 const maxMentionSuggestions = 6
 
 // mentionQuery finds an @word being typed right before the cursor.
+// cursorLine is the text of the line the cursor is on, and the cursor's rune column in it.
+func (m *Model) cursorLine() ([]rune, int) {
+	lines := strings.Split(m.compose.Value(), "\n")
+	row := clamp(m.compose.Line(), 0, len(lines)-1)
+	r := []rune(lines[row])
+	return r, clamp(m.compose.Column(), 0, len(r))
+}
+
 func (m *Model) mentionQuery() (start int, q string, ok bool) {
-	r := []rune(m.compose.Value())
-	pos := min(m.compose.Position(), len(r))
+	r, pos := m.cursorLine()
 	for i := pos - 1; i >= 0; i-- {
 		switch r[i] {
 		case ' ', '\t':
@@ -114,12 +121,14 @@ func (m *Model) mentionKey(key string) (bool, tea.Cmd) {
 }
 
 func (m *Model) acceptMention(u beeper.User) {
-	r := []rune(m.compose.Value())
-	pos := min(m.compose.Position(), len(r))
+	_, pos := m.cursorLine()
 	tag := "@" + u.Name()
-	out := string(r[:m.mention.start]) + tag + " " + string(r[pos:])
-	m.compose.SetValue(out)
-	m.compose.SetCursor(m.mention.start + len([]rune(tag)) + 1)
+	// delete the typed "@query" and type the full name in its place, which
+	// keeps the cursor right where it should be in a multi-line draft
+	for range pos - m.mention.start {
+		m.compose, _ = m.compose.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	}
+	m.compose.InsertString(tag + " ")
 	if m.mentioned == nil {
 		m.mentioned = map[string]string{}
 	}
