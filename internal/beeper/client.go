@@ -213,6 +213,9 @@ func (c *Client) SendAttachment(ctx context.Context, chatID string, up Upload, c
 		att["mimeType"] = up.MimeType
 		att["type"] = attachmentType(up.MimeType)
 	}
+	if up.Kind != "" {
+		att["type"] = up.Kind
+	}
 	if up.FileName != "" {
 		att["fileName"] = up.FileName
 	}

@@ -124,13 +124,10 @@ func memeScore(t memeTemplate, q string) int {
 }
 
 // memeSearch ranks templates by memeScore. With no query, animated ones come first.
-func (m *Model) memeSearch(ctx context.Context, q string) ([]gifResult, error) {
-	ts := m.memeCache
-	if ts == nil {
-		var err error
-		if ts, err = memegenTemplates(ctx); err != nil {
-			return nil, err
-		}
+func memeSearch(ctx context.Context, q string) ([]gifResult, error) {
+	ts, err := cached(func() []memeTemplate { return memeList }, func(v []memeTemplate) { memeList = v }, func() ([]memeTemplate, error) { return memegenTemplates(ctx) })
+	if err != nil {
+		return nil, err
 	}
 	type scored struct {
 		r     gifResult
@@ -148,7 +145,16 @@ func (m *Model) memeSearch(ctx context.Context, q string) ([]gifResult, error) {
 			continue
 		}
 		t := t
-		r := gifResult{slug: t.ID, title: t.Name, previewURL: t.Blank, meme: &t}
+		r := gifResult{
+			source: "memegen", kind: "meme", slug: t.ID, title: t.Name, previewURL: t.Blank, meme: &t,
+			captionURL: func(text string) string { return memeURL(t, splitCaption(text)) },
+			captionPreview: func(text string) string {
+				still := t
+				still.Styles = nil // png preview even for animated templates
+				return memeURL(still, splitCaption(text))
+			},
+			captionHelp: func(w int) []string { return memeCaptionHelp(t, w) },
+		}
 		if t.animated() {
 			r.title += "  (gif)"
 			sc++ // nudge animated ones up among equals
@@ -208,13 +214,13 @@ func (m *Model) captionKey(k tea.KeyPressMsg) tea.Cmd {
 	switch k.String() {
 	case "esc":
 		g.captioning, g.capURL = nil, ""
-		m.line.Prompt = "gif> "
+		m.line.Prompt = "search> "
 		m.line.SetValue(g.savedQuery)
 		m.line.CursorEnd()
 		return tea.Batch(m.loadGifPreview(), m.placeGifPreview())
 	case "enter":
 		r := *g.captioning
-		r.sendURL = memeURL(*r.meme, splitCaption(m.line.Value()))
+		r.sendURL = r.captionURL(m.line.Value())
 		return tea.Batch(m.closeGif(), m.sendGif(r))
 	}
 	before := m.line.Value()
@@ -235,19 +241,16 @@ func (m *Model) refreshMemePreview() tea.Cmd {
 	if g == nil || g.captioning == nil {
 		return nil
 	}
-	lines := splitCaption(m.line.Value())
-	if len(lines) == 0 {
+	if strings.TrimSpace(m.line.Value()) == "" {
 		g.capURL = ""
 	} else {
-		t := *g.captioning.meme
-		t.Styles = nil // png preview even for animated templates
-		g.capURL = memeURL(t, lines)
+		g.capURL = g.captioning.captionPreview(m.line.Value())
 	}
 	return tea.Batch(m.loadGifPreview(), m.placeGifPreview())
 }
 
 // captionHelp explains the slots for this template, with memegen's own example.
-func (m *Model) captionHelp(t memeTemplate, w int) []string {
+func memeCaptionHelp(t memeTemplate, w int) []string {
 	slots := max(1, t.Lines)
 	names := []string{"top", "bottom"}
 	if slots != 2 {

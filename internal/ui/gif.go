@@ -32,21 +32,32 @@ var klipyBase = firstNonEmpty(os.Getenv("BEEPERTUI_KLIPY_URL"), "https://api.kli
 
 type gifResult struct {
 	slug, title   string
-	meme          *memeTemplate // set for memegen results, captioned before sending
-	sendURL       string        // the gif that gets uploaded to the chat
-	previewURL    string        // a small still for the picker
+	source        string // klipy, giphy, memegen, nekos, kitchen, cataas, xkcd, status, reddit
+	kind          string // what the status line calls it: gif, meme, sticker...
+	attType       string // overrides Beeper's attachment type, e.g. sticker
+	header        string // set on the All tab's section headers, which aren't selectable
+	meme          *memeTemplate
+	sendURL       string // what gets uploaded to the chat (may be a ref like xkcd:N)
+	previewURL    string // a small still for the picker
 	width, height int
+
+	// results with a caption step (memes, cats): the final URL for a caption,
+	// a quick preview URL for it, and the help shown while typing
+	captionURL     func(text string) string
+	captionPreview func(text string) string
+	captionHelp    func(width int) []string
 }
 
 type gifPicker struct {
-	query    string
-	results  []gifResult
-	cur      int
-	loading  bool
-	err      error
-	seq      int // ignores responses to stale queries
-	preview  map[string]*thumb
-	provider string
+	query   string
+	results []gifResult
+	cur     int
+	loading bool
+	err     error
+	seq     int // ignores responses to stale queries
+	preview map[string]*thumb
+	tab     int    // index into mediaTabs
+	gifProv string // klipy, giphy or "" (no key)
 
 	// caption step for memes: the picked template, the live preview url, and
 	// the search to go back to
@@ -64,8 +75,6 @@ func giphyKey() string { return strings.TrimSpace(os.Getenv("BEEPERTUI_GIPHY_KEY
 func (m *Model) gifProvider() string {
 	want := m.cfg.String("gif_provider")
 	switch {
-	case want == "memegen":
-		return "memegen"
 	case want == "klipy" && klipyKey() != "":
 		return "klipy"
 	case want == "giphy" && giphyKey() != "":
@@ -75,18 +84,7 @@ func (m *Model) gifProvider() string {
 	case want == "auto" && giphyKey() != "":
 		return "giphy"
 	}
-	// no key: free memes from memegen.link
-	return "memegen"
-}
-
-func providerName(p string) string {
-	switch p {
-	case "giphy":
-		return "GIPHY"
-	case "memegen":
-		return "memegen.link (set BEEPERTUI_KLIPY_KEY or BEEPERTUI_GIPHY_KEY for real GIF search)"
-	}
-	return "KLIPY"
+	return ""
 }
 
 // customerID is a stable, anonymous id per user and machine, which KLIPY uses for "recent".
@@ -102,58 +100,78 @@ func customerID() string {
 	return hex.EncodeToString(sum[:8])
 }
 
+// openGifPicker is ctrl+g: the last tab used, else GIFs with a key or All without.
 func (m *Model) openGifPicker(query string) tea.Cmd {
-	if m.cur == nil {
-		m.setErr("open a chat first")
-		return nil
+	tab := m.mediaTab
+	if tab == "" {
+		tab = "all"
+		if m.gifProvider() != "" {
+			tab = "gifs"
+		}
+		if m.cfg.String("gif_provider") == "memegen" {
+			tab = "memes"
+		}
 	}
-	return m.openPickerFor(m.gifProvider(), query)
+	return m.openPickerFor(tab, query)
 }
 
-// openPickerFor opens the GIF picker on a given provider; :meme forces memegen.
-func (m *Model) openPickerFor(provider, query string) tea.Cmd {
+// openPickerFor opens the media picker on a tab (all, gifs, memes, ...).
+func (m *Model) openPickerFor(tab, query string) tea.Cmd {
 	if m.cur == nil {
 		m.setErr("open a chat first")
 		return nil
 	}
-	m.gif = &gifPicker{query: query, preview: map[string]*thumb{}, provider: provider}
+	m.gif = &gifPicker{query: query, preview: map[string]*thumb{}, tab: tabIndex(tab), gifProv: m.gifProvider()}
+	m.mediaTab = tab
 	m.mode = modeGif
-	m.line.Prompt = "gif> "
+	m.line.Prompt = "search> "
 	m.line.SetValue(query)
 	m.line.CursorEnd()
 	return tea.Batch(m.line.Focus(), m.searchGifs())
 }
 
+// switchTab moves the picker to another tab, keeping the search text.
+func (m *Model) switchTab(d int) tea.Cmd {
+	g := m.gif
+	g.tab = (g.tab + d + len(mediaTabs)) % len(mediaTabs)
+	m.mediaTab = mediaTabs[g.tab].id
+	g.results, g.cur, g.err = nil, 0, nil
+	return m.searchGifs()
+}
+
 func (m *Model) searchGifs() tea.Cmd {
 	g := m.gif
 	g.seq++
-	seq, q, provider := g.seq, strings.TrimSpace(m.line.Value()), g.provider
+	seq, q, tab, prov := g.seq, strings.TrimSpace(m.line.Value()), mediaTabs[g.tab].id, g.gifProv
 	g.loading = true
 	return m.run("", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
-		search := klipySearch
-		switch provider {
-		case "giphy":
-			search = giphySearch
-		case "memegen":
-			search = func(ctx context.Context, q string) ([]gifResult, error) { return m.memeSearch(ctx, q) }
+		var res []gifResult
+		var err error
+		if tab == "all" {
+			res, err = m.allSearch(ctx, prov, q)
+		} else {
+			res, err = m.sourceSearch(ctx, tab, prov, q, 30)
 		}
-		res, err := search(ctx, q)
 		return func(m *Model) tea.Cmd {
-			if provider == "memegen" && m.memeCache == nil && err == nil {
-				for _, r := range res {
-					if r.meme != nil {
-						m.memeCache = append(m.memeCache, *r.meme)
-					}
-				}
-			}
 			if m.gif == nil || m.gif.seq != seq {
 				return nil
 			}
 			m.gif.loading, m.gif.err = false, err
 			m.gif.results, m.gif.cur = res, 0
-			return m.loadGifPreview()
+			m.gif.skipHeaders(1)
+			return tea.Batch(m.loadGifPreview(), m.placeGifPreview())
 		}, nil
 	})
+}
+
+// skipHeaders moves the cursor off section headers, in direction d.
+func (g *gifPicker) skipHeaders(d int) {
+	for range len(g.results) {
+		if g.cur < len(g.results) && g.results[g.cur].header == "" {
+			return
+		}
+		g.cur = (g.cur + d + len(g.results)) % len(g.results)
+	}
 }
 
 func klipySearch(ctx context.Context, q string) ([]gifResult, error) {
@@ -212,7 +230,7 @@ func klipySearch(ctx context.Context, q string) ([]gifResult, error) {
 		if send == nil {
 			continue
 		}
-		r := gifResult{slug: d.Slug, title: firstNonEmpty(d.Title, d.Slug), sendURL: send.URL, width: send.Width, height: send.Height}
+		r := gifResult{source: "klipy", kind: "gif", slug: d.Slug, title: firstNonEmpty(d.Title, d.Slug), sendURL: send.URL, width: send.Width, height: send.Height}
 		if still != nil {
 			r.previewURL = still.URL
 		}
@@ -272,7 +290,7 @@ func giphySearch(ctx context.Context, q string) ([]gifResult, error) {
 		var w, h int
 		fmt.Sscan(send.Width, &w)
 		fmt.Sscan(send.Height, &h)
-		res = append(res, gifResult{slug: d.Slug, title: firstNonEmpty(d.Title, d.Slug), sendURL: send.URL, previewURL: d.Images.FixedHeightStill.URL, width: w, height: h})
+		res = append(res, gifResult{source: "giphy", kind: "gif", slug: d.Slug, title: firstNonEmpty(d.Title, d.Slug), sendURL: send.URL, previewURL: d.Images.FixedHeightStill.URL, width: w, height: h})
 	}
 	return res, nil
 }
@@ -286,9 +304,9 @@ func (g *gifPicker) current() (key, url string) {
 		}
 		return g.captioning.slug, g.captioning.previewURL
 	}
-	if g.cur < len(g.results) {
+	if g.cur < len(g.results) && g.results[g.cur].header == "" {
 		r := g.results[g.cur]
-		return r.slug, r.previewURL
+		return r.source + ":" + r.slug, r.previewURL
 	}
 	return "", ""
 }
@@ -311,7 +329,11 @@ func (m *Model) loadGifPreview() tea.Cmd {
 		t.id = kittyFirstID + 0x10000 + m.nextImageID
 	}
 	return m.run("", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
-		path, err := fetchTemp(ctx, previewURL, "beepertui-gifprev-*.img")
+		u, err := resolveURL(ctx, previewURL)
+		var path string
+		if err == nil {
+			path, err = fetchTemp(ctx, u, "beepertui-gifprev-*.img")
+		}
 		var png []byte
 		var w, h int
 		var img image.Image
@@ -376,22 +398,28 @@ func (m *Model) gifKey(k tea.KeyPressMsg) tea.Cmd {
 	switch k.String() {
 	case "esc":
 		return m.closeGif()
+	case "tab", "ctrl+right", "alt+right":
+		return m.switchTab(1)
+	case "shift+tab", "ctrl+left", "alt+left":
+		return m.switchTab(-1)
 	case "up", "ctrl+p", "ctrl+k":
 		if len(g.results) > 0 {
 			g.cur = (g.cur - 1 + len(g.results)) % len(g.results)
+			g.skipHeaders(-1)
 		}
 		return tea.Batch(m.loadGifPreview(), m.placeGifPreview())
-	case "down", "ctrl+n", "ctrl+j", "tab":
+	case "down", "ctrl+n", "ctrl+j":
 		if len(g.results) > 0 {
 			g.cur = (g.cur + 1) % len(g.results)
+			g.skipHeaders(1)
 		}
 		return tea.Batch(m.loadGifPreview(), m.placeGifPreview())
 	case "enter":
-		if g.cur >= len(g.results) {
+		if g.cur >= len(g.results) || g.results[g.cur].header != "" {
 			return nil
 		}
 		r := g.results[g.cur]
-		if r.meme != nil {
+		if r.captionURL != nil {
 			// captions are typed right here, with a live preview
 			g.captioning, g.capURL = &r, ""
 			g.savedQuery = m.line.Value()
@@ -437,29 +465,25 @@ func (m *Model) sendGif(r gifResult) tea.Cmd {
 	if m.cur == nil {
 		return nil
 	}
-	provider := m.gifProvider()
 	chatID := m.cur.ID
 	replyTo := ""
 	if m.replyTo != nil {
 		replyTo = m.replyTo.ID
 		m.replyTo = nil
 	}
-	what := "gif"
-	if r.meme != nil {
-		what = "meme"
-	}
+	what := firstNonEmpty(r.kind, "gif")
 	// downloads and uploads can take a few seconds, so say so straight away
 	m.setStatus("sending " + what + "...")
 	return m.run("sent "+what, func(ctx context.Context) (func(*Model) tea.Cmd, error) {
-		ext := ".gif"
-		if strings.HasSuffix(r.sendURL, ".png") {
-			ext = ".png"
-		}
-		path, err := fetchTemp(ctx, r.sendURL, "beepertui-gif-*"+ext)
+		u, err := resolveURL(ctx, r.sendURL)
 		if err != nil {
 			return nil, err
 		}
-		named := filepath.Join(filepath.Dir(path), safeName(r.slug)+ext)
+		path, err := fetchTemp(ctx, u, "beepertui-media-*")
+		if err != nil {
+			return nil, err
+		}
+		named := filepath.Join(filepath.Dir(path), safeName(r.slug)+sniffExt(path))
 		if os.Rename(path, named) == nil {
 			path = named
 		}
@@ -468,11 +492,12 @@ func (m *Model) sendGif(r gifResult) tea.Cmd {
 		if err != nil {
 			return nil, err
 		}
+		up.Kind = r.attType
 		if _, err := m.c.SendAttachment(ctx, chatID, up, "", replyTo); err != nil {
 			return nil, err
 		}
 		done := func(m *Model) tea.Cmd { return tea.Batch(m.showToast("✓", "sent "+what), reloadAfter(m)) }
-		if provider != "klipy" {
+		if r.source != "klipy" {
 			return done, nil
 		}
 		// tell KLIPY it was shared, as their API asks; best effort
@@ -484,6 +509,28 @@ func (m *Model) sendGif(r gifResult) tea.Cmd {
 		}
 		return done, nil
 	})
+}
+
+// sniffExt picks a file extension from the downloaded bytes.
+func sniffExt(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	head := make([]byte, 512)
+	n, _ := f.Read(head)
+	switch http.DetectContentType(head[:n]) {
+	case "image/gif":
+		return ".gif"
+	case "image/png":
+		return ".png"
+	case "image/jpeg":
+		return ".jpg"
+	case "image/webp":
+		return ".webp"
+	}
+	return ""
 }
 
 func safeName(s string) string {
@@ -518,7 +565,7 @@ func (m *Model) placeGifPreview() tea.Cmd {
 		return nil
 	}
 	h, _, prevW := m.gifGeometry()
-	c, r := fitCells(t.w, t.h, min(prevW, len(diacritics)), min(h-4, len(diacritics)), m.cellAspect)
+	c, r := fitCells(t.w, t.h, min(prevW, len(diacritics)), min(h-6, len(diacritics)), m.cellAspect)
 	if c == t.placedCols && r == t.placedRows {
 		return nil
 	}
@@ -539,8 +586,12 @@ func (m *Model) renderGif() string {
 	case len(g.results) == 0:
 		list = append(list, stDim.Render("nothing found"))
 	}
-	start := max(0, g.cur-(h-4)+1)
-	for i := start; i < len(g.results) && len(list) < h-3; i++ {
+	start := max(0, g.cur-(h-6)+1)
+	for i := start; i < len(g.results) && len(list) < h-5; i++ {
+		if hd := g.results[i].header; hd != "" {
+			list = append(list, stAccent.Bold(true).Render(truncate(hd, listW)))
+			continue
+		}
 		t := truncate(oneLine(g.results[i].title), listW-2)
 		if i == g.cur {
 			list = append(list, stCursor.Render("> ")+stBold.Render(t))
@@ -549,8 +600,8 @@ func (m *Model) renderGif() string {
 		}
 	}
 
-	if g.captioning != nil {
-		list = m.captionHelp(*g.captioning.meme, listW)
+	if g.captioning != nil && g.captioning.captionHelp != nil {
+		list = g.captioning.captionHelp(listW)
 	}
 	var prev []string
 	if key, _ := g.current(); key != "" {
@@ -558,16 +609,33 @@ func (m *Model) renderGif() string {
 			if t.sent && t.placedCols > 0 {
 				prev = kittyLines(t.id, t.placedCols, t.placedRows)
 			} else if t.img != nil {
-				prev = halfBlocks(t.img, prevW, h-4)
+				prev = halfBlocks(t.img, prevW, h-6)
 			}
 		} else {
 			prev = []string{stDim.Render("loading preview...")}
 		}
 	}
 
-	title := stBold.Render("GIFs") + stDim.Render("   type to search, enter sends, esc cancels   ") + stDim.Italic(true).Render("Powered by "+providerName(g.provider))
-	left := lipgloss.NewStyle().Width(listW).Height(h - 3).Render(strings.Join(list, "\n"))
-	right := lipgloss.Place(prevW, h-3, lipgloss.Center, lipgloss.Center, strings.Join(prev, "\n"))
+	tab := mediaTabs[g.tab]
+	credit := tab.credit
+	if tab.id == "gifs" {
+		credit = map[string]string{"klipy": "KLIPY", "giphy": "GIPHY"}[g.gifProv]
+		if credit == "" {
+			credit = "needs a free KLIPY or GIPHY key"
+		}
+	}
+	var tabs []string
+	for i, t := range mediaTabs {
+		if i == g.tab {
+			tabs = append(tabs, stTabOn.Render(t.label))
+		} else {
+			tabs = append(tabs, stTab.Render(t.label))
+		}
+	}
+	title := truncate(strings.Join(tabs, ""), m.w-8) + "\n" +
+		stDim.Render("type to search · tab switches · ↑↓ pick · enter sends · esc closes   ") + stDim.Italic(true).Render("via "+credit)
+	left := lipgloss.NewStyle().Width(listW).Height(h - 5).Render(strings.Join(list, "\n"))
+	right := lipgloss.Place(prevW, h-5, lipgloss.Center, lipgloss.Center, strings.Join(prev, "\n"))
 	box := stOverlay.Width(m.w - 4).Render(title + "\n\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, "  ", right))
 	return lipgloss.Place(m.w, m.bodyHeight()+2, lipgloss.Center, lipgloss.Center, box)
 }

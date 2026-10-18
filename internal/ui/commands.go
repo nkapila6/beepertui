@@ -189,18 +189,16 @@ func init() {
 			return tea.Batch(m.startInsert(), m.pasteFromClipboard())
 		}},
 		{"chats", "", "go to any chat by name (same as cc)", func(m *Model, _ string) tea.Cmd { return m.openSwitcher() }},
-		{"gif", "[words]", "search and send a GIF (C-g while writing)", func(m *Model, arg string) tea.Cmd {
-			if c := m.startInsert(); m.mode != modeInsert {
-				return c
-			}
-			return m.openGifPicker(arg)
-		}},
-		{"meme", "[words]", "free memes from memegen.link, animated ones send as GIFs", func(m *Model, arg string) tea.Cmd {
-			if c := m.startInsert(); m.mode != modeInsert {
-				return c
-			}
-			return m.openPickerFor("memegen", arg)
-		}},
+		{"media", "[words]", "search every source at once: gifs, memes, reactions, stickers, cats, xkcd, status codes, reddit", mediaCmd("all")},
+		{"memeall", "[words]", "same as :media", mediaCmd("all")},
+		{"gif", "[words]", "GIF search via KLIPY or GIPHY (needs a free key)", mediaCmd("gifs")},
+		{"meme", "[words]", "meme templates from memegen.link, captioned before sending", mediaCmd("memes")},
+		{"nekos", "[mood]", "anime reaction GIFs from nekos.best: laugh, cry, wave, facepalm...", mediaCmd("reactions")},
+		{"emoji", "[two emoji]", "Emoji Kitchen mashups, e.g. :emoji skull laugh", mediaCmd("stickers")},
+		{"cataas", "[tag]", "cat pictures and GIFs from cataas.com, with optional text", mediaCmd("cats")},
+		{"xkcd", "[number|words]", "xkcd comics by number or title", mediaCmd("xkcd")},
+		{"status", "[code|words]", "HTTP status codes as cats and dogs (http.cat, http.dog)", mediaCmd("status")},
+		{"memeapi", "[subreddit]", "top memes from a subreddit via meme-api.com", mediaCmd("reddit")},
 		{"dm", "[name|handle|phone]", "start a direct chat", func(m *Model, arg string) tea.Cmd { return m.cmdDM(arg) }},
 		{"group", "<title>", "create a group chat", func(m *Model, arg string) tea.Cmd { return m.cmdGroup(arg) }},
 		{"search", "<words>", "search all messages", func(m *Model, arg string) tea.Cmd { return m.cmdSearch(arg) }},
@@ -564,4 +562,14 @@ func firstNonEmpty(ss ...string) string {
 		}
 	}
 	return ""
+}
+
+// mediaCmd opens the media picker on a tab, ready to send into the open chat.
+func mediaCmd(tab string) func(*Model, string) tea.Cmd {
+	return func(m *Model, arg string) tea.Cmd {
+		if c := m.startInsert(); m.mode != modeInsert {
+			return c
+		}
+		return m.openPickerFor(tab, arg)
+	}
 }

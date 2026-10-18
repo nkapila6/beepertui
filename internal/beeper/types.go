@@ -83,6 +83,7 @@ type Upload struct {
 	MimeType string  `json:"mimeType"`
 	Width    float64 `json:"width"`
 	Height   float64 `json:"height"`
+	Kind     string  `json:"-"` // attachment type to send as, overriding the mime guess (e.g. sticker)
 }
 
 type Reaction struct {
