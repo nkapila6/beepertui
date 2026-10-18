@@ -417,8 +417,19 @@ func (m *Model) msgBlockParts(i int) (lines []string, pre int, kinds []lineKind)
 		lines = append(lines, rule("new", w, lipgloss.NewStyle().Foreground(colErr).Bold(true)))
 	}
 
+	var quoted *beeper.Message
+	if msg.LinkedMessageID != "" {
+		for j := range m.msgs {
+			if m.msgs[j].ID == msg.LinkedMessageID {
+				quoted = &m.msgs[j]
+				break
+			}
+		}
+	}
+
+	// replies always get a header, so the quote never hangs under someone else's name
 	showHeader := true
-	if i > 0 {
+	if i > 0 && msg.LinkedMessageID == "" {
 		prev := m.msgs[i-1]
 		showHeader = newDay || prev.SenderID != msg.SenderID || msg.Timestamp.Sub(prev.Timestamp) > 5*time.Minute
 	}
@@ -431,24 +442,16 @@ func (m *Model) msgBlockParts(i int) (lines []string, pre int, kinds []lineKind)
 		if msg.IsSender {
 			who = "you"
 		}
-		hdr := senderStyle(msg).Render(truncate(who, w-14)) + " " + stDim.Render(shortTime(msg.Timestamp))
+		hdr := senderStyle(msg).Render(truncate(who, w-14))
+		if msg.IsSender && quoted != nil {
+			hdr += stDim.Render(" replied to ") + senderStyle(*quoted).Bold(false).Render(truncate(quotedName(*quoted), w/3))
+		}
+		hdr += " " + stDim.Render(shortTime(msg.Timestamp))
 		lines = append(lines, hdr)
 	}
 
 	if msg.LinkedMessageID != "" {
-		ref := stDim.Render("↪ reply")
-		for _, o := range m.msgs {
-			if o.ID == msg.LinkedMessageID {
-				who := firstNonEmpty(o.SenderName, "?")
-				if o.IsSender {
-					who = "you"
-				}
-				who = truncate(who, w/3)
-				ref = stDim.Render("↪ ") + senderStyle(o).Bold(false).Render(who) + stDim.Render(": "+truncate(oneLine(plainText(o.Text)), max(1, w-4-lipgloss.Width(who))))
-				break
-			}
-		}
-		lines = append(lines, ref)
+		lines = append(lines, quoteCard(quoted, w)...)
 	}
 
 	switch {
@@ -839,4 +842,29 @@ func netShort(n string) string {
 		return n[:3]
 	}
 	return n
+}
+
+func quotedName(o beeper.Message) string {
+	if o.IsSender {
+		return "you"
+	}
+	return firstNonEmpty(o.SenderName, o.SenderID, "?")
+}
+
+// quoteCard is the indented block above a reply: a bar in the quoted
+// sender's colour, their name, then the start of what they said.
+func quoteCard(o *beeper.Message, w int) []string {
+	if o == nil {
+		return []string{"  " + stDim.Render("┃ reply to an older message")}
+	}
+	st := senderStyle(*o)
+	bar := "  " + st.Bold(false).Render("┃") + " "
+	text := oneLine(plainText(o.Text))
+	if text == "" && len(o.Attachments) > 0 {
+		text = "[" + strings.ToLower(firstNonEmpty(o.Attachments[0].Type, "file")) + "]"
+	}
+	return []string{
+		bar + st.Render(truncate(quotedName(*o), w-4)),
+		bar + stDim.Render(truncate(firstNonEmpty(text, "message"), w-4)),
+	}
 }
