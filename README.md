@@ -45,6 +45,7 @@ beepertui
 | `i` `a` | write. `enter` sends, `esc` leaves, `C-v` pastes an image, `C-c` clears, `@` mentions someone |
 | `s` | flash jump anywhere: labels every chat and message on screen at once |
 | `c` | flash just the chats and switch to one, from either pane |
+| `cc` | chat list popup: every chat across all inboxes, type to fuzzy filter, `enter` opens (no match searches all of Beeper). Also `:chats` |
 | `C` | flash a chat, then a one-key menu: open, pin, mute, archive, low priority, read/unread, remind, info. `CC` = current chat |
 | `y` `r` `R` `e` `x` `o` `U` | flash pick, then yank / reply / react / edit / delete / open / unreact |
 | `v` `d` | flash pick, then view the image big / download the attachment to `~/Downloads` |
@@ -89,6 +90,10 @@ Commands worth knowing: `:search <words>` searches every message across every ne
 ## Themes and tuios
 
 tuios colours and looks are supported. There are no hardcoded colours. Everything uses your terminal's 16 ANSI colours and its default text colour, so it picks up whatever theme you run, light ones included. That makes it tuios compatible: apply a look (`tuios look apply tuios.dev/r/19000274`) and the app restyles with it. Inline images work inside tuios too. tuios forwards kitty Unicode placeholders and tells panes they're on Ghostty when the host terminal can draw them, so you get real images in a tuios pane on Ghostty or kitty, and half-block thumbnails otherwise.
+
+## Storage
+
+Nothing is stored. beepertui doesn't read Beeper's database or keep a cache. Every chat and message comes from Beeper Desktop's local API (HTTP plus a websocket for live updates) and lives in memory until you quit. The only files it writes are temp images it deletes again, and downloads you ask for in `~/Downloads`. Downloads also pop a toast, plus a desktop notification in Ghostty, kitty, iTerm, WezTerm and tuios.
 
 ## Not in here
 

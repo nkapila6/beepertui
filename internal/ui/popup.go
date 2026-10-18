@@ -249,7 +249,7 @@ func (m *Model) download(a beeper.Attachment) tea.Cmd {
 				dest = strings.Replace(dest, home, "~", 1)
 			}
 			m.setStatus("saved " + dest)
-			return nil
+			return m.notify("saved " + dest)
 		}, nil
 	})
 }

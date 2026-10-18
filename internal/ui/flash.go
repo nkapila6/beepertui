@@ -122,7 +122,8 @@ func (m *Model) flashKey(key string) tea.Cmd {
 			return nil
 		}
 		if f.action == 'c' {
-			return m.flashDo(target{paneChats, m.chatCur})
+			// cc is the no-flash way: a filterable list of every chat
+			return m.openSwitcher()
 		}
 		return m.flashDo(target{paneMsgs, m.msgCur})
 	}

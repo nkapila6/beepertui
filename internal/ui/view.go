@@ -101,7 +101,7 @@ func (m *Model) fixMsgScroll() {
 // rendering
 
 func (m *Model) View() tea.View {
-	v := tea.NewView(m.render())
+	v := tea.NewView(m.withToast(m.render()))
 	v.AltScreen = true
 	if m.mouse {
 		v.MouseMode = tea.MouseModeCellMotion
@@ -479,7 +479,11 @@ func (m *Model) renderStatus() string {
 	msg := m.status
 	if m.mode == modeFlash {
 		msg = "type a label"
-		if m.flash.action != 's' {
+		switch m.flash.action {
+		case 's':
+		case 'c':
+			msg += ", c again for the chat list"
+		default:
 			msg += fmt.Sprintf(", %c again for the cursor", m.flash.action)
 		}
 		msg += ", esc cancels"

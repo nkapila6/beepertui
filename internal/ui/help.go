@@ -27,6 +27,7 @@ func helpSections() []helpSection {
 			{"[  ]", "prev / next inbox"},
 			{"J  K", "next / previous chat"},
 			{"c", "flash: switch to any chat"},
+			{"cc  :chats", "chat list popup, type and enter"},
 			{"C", "flash: pick a chat, then act on it"},
 			{"n  N", "new DM / new group"},
 			{":", "command line"},

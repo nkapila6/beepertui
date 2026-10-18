@@ -179,6 +179,7 @@ func init() {
 		{"paste", "", "attach the image or file on the clipboard (C-v while writing)", func(m *Model, _ string) tea.Cmd {
 			return tea.Batch(m.startInsert(), m.pasteFromClipboard())
 		}},
+		{"chats", "", "go to any chat by name (same as cc)", func(m *Model, _ string) tea.Cmd { return m.openSwitcher() }},
 		{"dm", "[name|handle|phone]", "start a direct chat", func(m *Model, arg string) tea.Cmd { return m.cmdDM(arg) }},
 		{"group", "<title>", "create a group chat", func(m *Model, arg string) tea.Cmd { return m.cmdGroup(arg) }},
 		{"search", "<words>", "search all messages", func(m *Model, arg string) tea.Cmd { return m.cmdSearch(arg) }},

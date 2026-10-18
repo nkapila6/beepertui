@@ -96,7 +96,10 @@ type Model struct {
 	mention          *mentionState
 	mentioned        map[string]string // "@Name" -> user id, for the draft being written
 	mentionDismissed int
-	helpOff          int
+
+	toast    *toast
+	toastSeq int
+	helpOff  int
 
 	// confirm
 	confirmText string
@@ -224,6 +227,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		return m, m.handleKey(msg)
+
+	case toastDoneMsg:
+		if m.toast != nil && m.toast.seq == msg.seq {
+			m.toast = nil
+		}
+		return m, nil
 
 	case tea.MouseMsg:
 		return m, m.handleMouse(msg)
