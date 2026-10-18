@@ -163,10 +163,13 @@ func init() {
 			return m.run("opened in Beeper", func(ctx context.Context) (func(*Model) tea.Cmd, error) { return nil, m.c.Focus(ctx, ch.ID, "") })
 		})},
 		{"info", "", "show chat details", needChat(func(m *Model, ch beeper.Chat, _ string) tea.Cmd { m.chatInfo(ch); return nil })},
-		{"attach", "<path>", "stage a file for the next message", func(m *Model, arg string) tea.Cmd {
+		{"attach", "[path]", "stage a file for the next message (no path: file dialog)", func(m *Model, arg string) tea.Cmd {
 			if m.cur == nil {
 				m.setErr("open a chat first")
 				return nil
+			}
+			if arg == "" {
+				return m.chooseFile()
 			}
 			p := expandHome(arg)
 			if _, err := os.Stat(p); err != nil {
@@ -176,10 +179,17 @@ func init() {
 			m.setAttach(p, false)
 			return m.startInsert()
 		}},
+		{"files", "[folder]", "browse folders and attach a file", func(m *Model, arg string) tea.Cmd { return m.browseFiles(expandHome(arg)) }},
 		{"paste", "", "attach the image or file on the clipboard (C-v while writing)", func(m *Model, _ string) tea.Cmd {
 			return tea.Batch(m.startInsert(), m.pasteFromClipboard())
 		}},
 		{"chats", "", "go to any chat by name (same as cc)", func(m *Model, _ string) tea.Cmd { return m.openSwitcher() }},
+		{"gif", "[words]", "search and send a GIF (C-g while writing)", func(m *Model, arg string) tea.Cmd {
+			if c := m.startInsert(); m.mode != modeInsert {
+				return c
+			}
+			return m.openGifPicker(arg)
+		}},
 		{"dm", "[name|handle|phone]", "start a direct chat", func(m *Model, arg string) tea.Cmd { return m.cmdDM(arg) }},
 		{"group", "<title>", "create a group chat", func(m *Model, arg string) tea.Cmd { return m.cmdGroup(arg) }},
 		{"search", "<words>", "search all messages", func(m *Model, arg string) tea.Cmd { return m.cmdSearch(arg) }},

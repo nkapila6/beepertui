@@ -52,6 +52,7 @@ func (m *Model) messageMenu(i int, link string) []menuItem {
 		menuItem{"r", "reply", func(m *Model) tea.Cmd { return m.reply(msg) }},
 		menuItem{"R", "react", func(m *Model) tea.Cmd { return m.react(msg) }},
 		menuItem{"y", "copy text", func(m *Model) tea.Cmd { return m.yank(msg) }},
+		menuItem{"F", "forward", func(m *Model) tea.Cmd { return m.forward(msg) }},
 	)
 	if _, ok := messageImage(msg); ok {
 		items = append(items, menuItem{"v", "view image", func(m *Model) tea.Cmd { return m.viewImage(i) }})

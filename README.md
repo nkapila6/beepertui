@@ -88,6 +88,16 @@ While writing, `C-v` grabs whatever is on the macOS clipboard: a screenshot or c
 
 Images and video posters show inline. In Ghostty and kitty they're real images, drawn with the kitty graphics protocol. Everywhere else, tmux included, they fall back to chunky half-block thumbnails. HEIC and WebP work too. `o` opens the full thing, and `:images off` hides them. Set `BEEPERTUI_IMAGES=kitty|blocks|off` to override the detection.
 
+`C-o` while writing picks a file (the Finder dialog on macOS, a folder browser elsewhere), and `:files` always gives the in-app browser.
+
+## GIFs
+
+`C-g` while writing (or `:gif cats`) searches GIFs as you type, shows trending ones when the search box is empty, previews the highlighted one and sends it with `enter`. It uses [KLIPY](https://klipy.com), since Tenor's API shut down in 2026. Grab a free key from their partner panel and set `BEEPERTUI_KLIPY_KEY`. Test keys get 100 searches an hour, and production access is free too.
+
+## Forwarding
+
+`F` + label (or `FF`, or right-click > forward) picks a chat and sends the message there. Beeper's API has no real forward, so it goes out as a fresh message from you, with attachments re-uploaded.
+
 ## Reacting
 
 `R` opens an emoji picker:

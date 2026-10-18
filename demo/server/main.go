@@ -258,6 +258,20 @@ func main() {
 			j(w, obj{"access_token": "demo-token", "token_type": "Bearer", "expires_in": 3600})
 		case p == "/v1/info":
 			j(w, obj{"app": obj{"name": "Beeper (demo)"}})
+		case strings.HasPrefix(p, "/klipy/") && (strings.HasSuffix(p, "/gifs/search") || strings.HasSuffix(p, "/gifs/trending")):
+			// stand-in for KLIPY's search, every result is the demo image
+			media := "http://" + *addr + "/media/demo"
+			var items []obj
+			for i, t := range []string{"party parrot", "thumbs up", "deal with it", "this is fine", "mind blown", "high five"} {
+				f := obj{"gif": obj{"url": media + ".gif", "width": 400, "height": 400}, "jpg": obj{"url": media + ".jpg", "width": 200, "height": 200}}
+				items = append(items, obj{"slug": fmt.Sprintf("demo-%d", i), "title": t, "file": obj{"md": f, "sm": f}})
+			}
+			j(w, obj{"result": true, "data": obj{"data": items}})
+		case strings.HasPrefix(p, "/media/"):
+			http.ServeFile(w, r, *image)
+		case p == "/v1/assets/upload":
+			io.Copy(io.Discard, r.Body)
+			j(w, obj{"uploadID": "up1", "fileName": "gif.gif", "mimeType": "image/gif"})
 		case p == "/v1/accounts":
 			j(w, []obj{{"accountID": "x", "network": "WhatsApp", "status": "connected", "user": me}})
 		case p == "/v1/assets/download":

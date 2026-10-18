@@ -34,6 +34,8 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		return m.linkKey(key)
 	case modeMenu:
 		return m.menuKey(key)
+	case modeGif:
+		return m.gifKey(k)
 	}
 	return m.normalKey(key)
 }
@@ -66,6 +68,8 @@ func (m *Model) ctrlC() tea.Cmd {
 	case modeMenu:
 		m.closeMenu()
 		return nil
+	case modeGif:
+		return m.closeGif()
 	}
 	m.mode = modeNormal
 	return nil
@@ -199,7 +203,7 @@ func (m *Model) normalKey(key string) tea.Cmd {
 	}
 
 	switch key {
-	case "y", "r", "R", "e", "x", "o", "U", "v", "d":
+	case "y", "r", "R", "e", "x", "o", "U", "v", "d", "F":
 		m.startFlash(rune(key[0]))
 	case "enter":
 		// enter on an image opens the viewer, anywhere else it starts a message
@@ -282,6 +286,10 @@ func (m *Model) insertKey(k tea.KeyPressMsg) tea.Cmd {
 		return m.submitCompose()
 	case "ctrl+v":
 		return m.pasteFromClipboard()
+	case "ctrl+g":
+		return m.openGifPicker("")
+	case "ctrl+o":
+		return m.chooseFile()
 	}
 	var cmd tea.Cmd
 	m.compose, cmd = m.compose.Update(k)

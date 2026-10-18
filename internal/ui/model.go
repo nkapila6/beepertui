@@ -33,6 +33,7 @@ const (
 	modePopup
 	modeLinks
 	modeMenu
+	modeGif
 )
 
 // pollEvery backstops bridges that never emit websocket events (iMessage, as of 2026).
@@ -113,6 +114,7 @@ type Model struct {
 
 	hints linkHints
 	menu  *ctxMenu
+	gif   *gifPicker
 
 	avatars     map[string]*avatar
 	showAvatars bool
@@ -212,7 +214,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.line.SetWidth(max(10, m.w-20))
 		m.fixChatScroll()
 		m.fixMsgScroll()
-		return m, tea.Batch(m.placeImages(), m.placePopup(), m.afterResize())
+		return m, tea.Batch(m.placeImages(), m.placePopup(), m.placeGifPreview(), m.afterResize())
+
+	case gifSearchMsg:
+		if m.gif != nil && m.gif.seq == msg.seq {
+			return m, m.searchGifs()
+		}
+		return m, nil
 
 	case resizedMsg:
 		if msg.seq != m.resizeSeq {
@@ -289,7 +297,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.mode {
 	case modeInsert:
 		m.compose, cmd = m.compose.Update(msg)
-	case modeLine, modePicker:
+	case modeLine, modePicker, modeGif:
 		m.line, cmd = m.line.Update(msg)
 	}
 	return m, cmd

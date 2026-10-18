@@ -131,6 +131,8 @@ func (m *Model) render() string {
 		body = m.renderHelp()
 	case modePopup:
 		body = m.renderPopup()
+	case modeGif:
+		body = m.renderGif()
 	default:
 		chats := titledPane(m.paneStyle(paneChats), m.chatWidth(), m.bodyHeight()+2, m.chatsTitle(), m.renderChats())
 		msgs := titledPane(m.paneStyle(paneMsgs), m.msgWidth(), m.bodyHeight()+2, m.msgsTitle(), m.renderMsgs())
@@ -556,7 +558,7 @@ func (m *Model) renderStatus() string {
 		mode, name = stModeIns, "INSERT"
 	case modeFlash:
 		mode, name = stModeAlt, strings.ToUpper(flashVerbs[m.flash.action])
-	case modeLine, modePicker:
+	case modeLine, modePicker, modeGif:
 		return m.line.View()
 	case modeConfirm:
 		return stModeAlt.Render("CONFIRM") + " " + m.confirmText

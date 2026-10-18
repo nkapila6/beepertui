@@ -64,6 +64,7 @@ func helpSections() []helpSection {
 			{"enter on image", "image viewer"},
 			{"v", "view an image big"},
 			{"d", "download attachment to ~/Downloads"},
+			{"F", "forward to another chat"},
 			{"U", "remove your reaction"},
 			{"O", "show message in Beeper"},
 			{"p m A L u !", "act on the open chat"},
@@ -71,7 +72,7 @@ func helpSections() []helpSection {
 		{"Flash labels", -1, [][]string{
 			{"s", "everything on screen, both panes"},
 			{"c  C", "chats only (switch / action menu)"},
-			{"y r R e x o U v d", "messages only"},
+			{"y r R e x o U v d F", "messages only"},
 			{"<label>", "act on that message"},
 			{"yy rr CC ...", "act on the cursor item"},
 			{"esc", "cancel"},
@@ -82,7 +83,9 @@ func helpSections() []helpSection {
 			{"C-c", "clear the message (again to leave)"},
 			{"S-enter A-enter C-j", "new line"},
 			{"@name", "mention someone (tab picks, C-n/C-p move)"},
+			{"C-g  :gif", "search GIFs (needs BEEPERTUI_KLIPY_KEY)"},
 			{"C-v", "attach clipboard image or copied file"},
+			{"C-o  :files", "pick a file (Finder dialog on macOS)"},
 			{"drag a file in", "attaches it"},
 			{":attach <path>", "send a file with the next message"},
 			{"esc in normal", "drop reply / edit / attach"},
@@ -226,7 +229,7 @@ func (m *Model) helpKey(key string) tea.Cmd {
 func (m *Model) paneHints() []string {
 	switch {
 	case m.mode == modeInsert:
-		return []string{"enter  send", "esc    normal mode", "C-v    paste image"}
+		return []string{"enter send  C-o file", "C-v paste  C-g gif", "esc normal mode"}
 	case m.focus == paneMsgs:
 		return []string{"y yank  r reply  R react", "e edit  x del  o open", "c chats  C chat menu  ?"}
 	default:

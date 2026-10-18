@@ -404,3 +404,64 @@ func safeMime(mt string) bool {
 	}
 	return false
 }
+
+// forward re-sends a message to another chat. Beeper's API has no native
+// forward, so the text is sent again and attachments are re-uploaded.
+func (m *Model) forward(msg beeper.Message) tea.Cmd {
+	return m.run("", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
+		p, err := m.c.ListChats(ctx, 200)
+		if err != nil {
+			return nil, err
+		}
+		return func(m *Model) tea.Cmd {
+			items := make([]pickItem, 0, len(p.Items))
+			for _, ch := range p.Items {
+				if ch.IsReadOnly {
+					continue
+				}
+				items = append(items, pickItem{title: oneLine(ch.Title), detail: netShort(ch.Network), value: ch})
+			}
+			m.openPicker("forward to", items, func(m *Model, it pickItem) tea.Cmd {
+				return m.sendForward(msg, it.value.(beeper.Chat))
+			})
+			m.pick.match = func(it pickItem, q string) bool { return fuzzy(it.title, q) }
+			return nil
+		}, nil
+	})
+}
+
+func (m *Model) sendForward(msg beeper.Message, to beeper.Chat) tea.Cmd {
+	text := strings.TrimSpace(plainText(msg.Text))
+	atts := msg.Attachments
+	return m.run("", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
+		for i, a := range atts {
+			if a.SrcURL == "" {
+				continue
+			}
+			path, err := m.localPath(ctx, a.SrcURL)
+			if err != nil {
+				return nil, err
+			}
+			up, err := m.c.Upload(ctx, path)
+			if err != nil {
+				return nil, err
+			}
+			caption := ""
+			if i == 0 {
+				caption, text = text, "" // first attachment carries the text
+			}
+			if _, err := m.c.SendAttachment(ctx, to.ID, up, caption, ""); err != nil {
+				return nil, err
+			}
+		}
+		if text != "" {
+			if _, err := m.c.SendMessage(ctx, to.ID, text, ""); err != nil {
+				return nil, err
+			}
+		}
+		return func(m *Model) tea.Cmd {
+			m.setStatus("forwarded to " + to.Title)
+			return tea.Batch(m.notify("forwarded to "+to.Title), m.loadChats())
+		}, nil
+	})
+}
