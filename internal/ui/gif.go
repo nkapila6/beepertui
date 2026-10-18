@@ -471,7 +471,7 @@ func (m *Model) sendGif(r gifResult) tea.Cmd {
 		if _, err := m.c.SendAttachment(ctx, chatID, up, "", replyTo); err != nil {
 			return nil, err
 		}
-		done := func(m *Model) tea.Cmd { return tea.Batch(m.showToast("✓", "sent "+what), m.reloadOpenChat()) }
+		done := func(m *Model) tea.Cmd { return tea.Batch(m.showToast("✓", "sent "+what), reloadAfter(m)) }
 		if provider != "klipy" {
 			return done, nil
 		}
@@ -550,18 +550,7 @@ func (m *Model) renderGif() string {
 	}
 
 	if g.captioning != nil {
-		list = []string{
-			stBold.Render(truncate(g.captioning.title, listW)),
-			"",
-			stText.Render("type the captions:"),
-			stAccent.Render("  top / bottom"),
-			"",
-			stDim.Render("the preview updates"),
-			stDim.Render("as you type"),
-			"",
-			stDim.Render("enter sends"),
-			stDim.Render("esc back to templates"),
-		}
+		list = m.captionHelp(*g.captioning.meme, listW)
 	}
 	var prev []string
 	if key, _ := g.current(); key != "" {

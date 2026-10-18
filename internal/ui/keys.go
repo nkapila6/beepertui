@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -349,7 +350,18 @@ func (m *Model) submitCompose() tea.Cmd {
 	})
 }
 
-func reloadAfter(m *Model) tea.Cmd { return m.reloadOpenChat() }
+// reloadAfter refreshes the chat after you change something, then checks
+// again a few times: Beeper can take seconds to turn a send (especially an
+// upload) into a real message, and the live websocket may not be connected.
+func reloadAfter(m *Model) tea.Cmd { return tea.Batch(m.reloadOpenChat(), followUp()) }
+
+func followUp() tea.Cmd {
+	var cmds []tea.Cmd
+	for _, d := range []time.Duration{1500 * time.Millisecond, 4 * time.Second, 9 * time.Second} {
+		cmds = append(cmds, tea.Tick(d, func(time.Time) tea.Msg { return reloadMsg{chats: true, msgs: true} }))
+	}
+	return tea.Batch(cmds...)
+}
 
 func (m *Model) confirmKey(key string) tea.Cmd {
 	m.mode = modeNormal

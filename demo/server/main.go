@@ -31,6 +31,7 @@ var (
 	seq      = 1000
 	image    = flag.String("image", "", "local image served for picture messages and avatars")
 	addr     = flag.String("addr", "127.0.0.1:23999", "listen address")
+	delay    = flag.Duration("send-delay", 0, "how long sent messages take to show up, like a slow network")
 )
 
 func ts(ago time.Duration) string { return time.Now().Add(-ago).Format(time.RFC3339) }
@@ -208,8 +209,20 @@ func main() {
 			if body.ReplyTo != "" {
 				extra["linkedMessageID"] = body.ReplyTo
 			}
-			msg(parts[2], "", "", 0, body.Text, extra)
-			bump(parts[2])
+			add := func() {
+				msg(parts[2], "", "", 0, body.Text, extra)
+				bump(parts[2])
+			}
+			if *delay > 0 {
+				go func() {
+					time.Sleep(*delay)
+					mu.Lock()
+					defer mu.Unlock()
+					add()
+				}()
+			} else {
+				add()
+			}
 			j(w, obj{"chatID": parts[2], "pendingMessageID": "p"})
 		case len(parts) == 6 && parts[5] == "reactions" && r.Method == "POST":
 			var body struct {

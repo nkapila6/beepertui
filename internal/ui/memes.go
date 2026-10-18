@@ -11,6 +11,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // Memes from memegen.link: free, open source, no key. They power the GIF
@@ -26,6 +27,9 @@ type memeTemplate struct {
 	Styles   []string `json:"styles"`
 	Blank    string   `json:"blank"`
 	Keywords []string `json:"keywords"`
+	Example  struct {
+		Text []string `json:"text"`
+	} `json:"example"`
 }
 
 func (t memeTemplate) animated() bool {
@@ -163,4 +167,34 @@ func (m *Model) refreshMemePreview() tea.Cmd {
 		g.capURL = memeURL(t, lines)
 	}
 	return tea.Batch(m.loadGifPreview(), m.placeGifPreview())
+}
+
+// captionHelp explains the slots for this template, with memegen's own example.
+func (m *Model) captionHelp(t memeTemplate, w int) []string {
+	slots := max(1, t.Lines)
+	names := []string{"top", "bottom"}
+	if slots != 2 {
+		names = nil
+		for i := 1; i <= slots; i++ {
+			names = append(names, fmt.Sprintf("line %d", i))
+		}
+	}
+	out := []string{
+		stBold.Render(truncate(t.Name, w)),
+		"",
+		stText.Render(fmt.Sprintf("%d text slots, split by /", slots)),
+		stAccent.Render("  " + truncate(strings.Join(names, " / "), w-2)),
+	}
+	if len(t.Example.Text) > 0 {
+		out = append(out, "", stDim.Render("for example:"))
+		for _, l := range strings.Split(lipgloss.Wrap(strings.Join(t.Example.Text, " / "), w-2, " "), "\n") {
+			out = append(out, stAccent.Render("  "+l))
+		}
+	}
+	out = append(out, "",
+		stDim.Render("one part fills just the first slot"),
+		stDim.Render("the preview updates as you type"),
+		"",
+		stDim.Render("enter sends, esc back to templates"))
+	return out
 }
