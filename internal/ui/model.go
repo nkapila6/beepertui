@@ -103,8 +103,13 @@ type Model struct {
 	mentioned        map[string]string // "@Name" -> user id, for the draft being written
 	mentionDismissed int
 
-	toast    *toast
-	toastSeq int
+	toast     *toast
+	toastSeq  int
+	notifySeq int
+
+	focused      bool           // terminal has focus, from focus reporting
+	seenUnread   map[string]int // last unread count per chat, to spot new messages
+	notifPreview bool
 
 	nerdFont bool
 	compact  bool
@@ -161,6 +166,8 @@ func New(c *beeper.Client, cfg *config.Config) *Model {
 		mentionDismissed: -1,
 		avatars:          map[string]*avatar{},
 		cfg:              cfg,
+		focused:          true,
+		seenUnread:       map[string]int{},
 	}
 	for _, st := range config.Settings {
 		m.applySetting(st.Key)
@@ -278,6 +285,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.spinning = false
 		return m, nil
 
+	case tea.FocusMsg:
+		m.focused = true
+		return m, nil
+
+	case tea.BlurMsg:
+		m.focused = false
+		return m, nil
+
 	case toastDoneMsg:
 		if m.toast != nil && m.toast.seq == msg.seq {
 			m.toast = nil
@@ -364,6 +379,7 @@ func (m *Model) loadChats() tea.Cmd {
 			if m.chatCur < len(m.chats) {
 				selID = m.chats[m.chatCur].ID
 			}
+			alert := m.notifyNewMessages(p.Items)
 			m.chats = p.Items
 			m.chatCur = 0
 			for i, ch := range m.chats {
@@ -376,7 +392,7 @@ func (m *Model) loadChats() tea.Cmd {
 				}
 			}
 			m.fixChatScroll()
-			return m.loadAvatars()
+			return tea.Batch(alert, m.loadAvatars())
 		}, nil
 	})
 }

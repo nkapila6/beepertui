@@ -31,6 +31,8 @@ func (m *Model) applySetting(key string) {
 		m.mouse = c.Bool(key)
 	case "notifications":
 		m.notifications = c.Bool(key)
+	case "notification_preview":
+		m.notifPreview = c.Bool(key)
 	case "chat_width":
 		m.chatPct = c.Int(key)
 	case "inbox":

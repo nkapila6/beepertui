@@ -103,6 +103,7 @@ func (m *Model) fixMsgScroll() {
 func (m *Model) View() tea.View {
 	v := tea.NewView(m.withOverlays(m.render()))
 	v.AltScreen = true
+	v.ReportFocus = true // so notifications know whether you're looking
 	if m.mouse {
 		v.MouseMode = tea.MouseModeCellMotion
 	}

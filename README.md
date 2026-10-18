@@ -133,6 +133,10 @@ With a [Nerd Font](https://www.nerdfonts.com) installed, set `BEEPERTUI_NERDFONT
 
 tuios colours and looks are supported. There are no hardcoded colours. Everything uses your terminal's 16 ANSI colours and its default text colour, so it picks up whatever theme you run, light ones included. That makes it tuios compatible: apply a look (`tuios look apply tuios.dev/r/19000274`) and the app restyles with it. Inline images work inside tuios too. tuios forwards kitty Unicode placeholders and tells panes they're on Ghostty when the host terminal can draw them, so you get real images in a tuios pane on Ghostty or kitty, and half-block thumbnails otherwise.
 
+## Notifications
+
+New messages notify you through the terminal: kitty, Ghostty, WezTerm, iTerm and tuios turn them into real system notifications when beepertui is in the background, and a toast pops up in the corner when it's in front but you're in another chat. Muted chats and the chat you're reading stay quiet. `notification_preview = false` hides the message text, and `notifications = false` turns them off (handy if you'd rather keep Beeper Desktop's own notifications).
+
 ## Storage
 
 Nothing is stored. beepertui doesn't read Beeper's database or keep a cache. Every chat and message comes from Beeper Desktop's local API (HTTP plus a websocket for live updates) and lives in memory until you quit. The only files it writes are temp images it deletes again, and downloads you ask for in `~/Downloads`. Downloads also pop a toast, plus a desktop notification in Ghostty, kitty, iTerm, WezTerm and tuios.

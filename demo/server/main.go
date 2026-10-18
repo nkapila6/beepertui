@@ -256,6 +256,17 @@ func main() {
 				return
 			}
 			j(w, obj{"access_token": "demo-token", "token_type": "Bearer", "expires_in": 3600})
+		case p == "/demo/incoming":
+			// pretend someone else sent a message: /demo/incoming?chat=hike&from=omar&name=Omar+Haddad&text=hi
+			q := r.URL.Query()
+			msg(q.Get("chat"), q.Get("from"), q.Get("name"), 0, q.Get("text"), nil)
+			bump(q.Get("chat"))
+			for _, c := range chats {
+				if c["id"] == q.Get("chat") {
+					c["unreadCount"] = c["unreadCount"].(int) + 1
+				}
+			}
+			j(w, obj{})
 		case p == "/v1/info":
 			j(w, obj{"app": obj{"name": "Beeper (demo)"}})
 		case strings.HasPrefix(p, "/klipy/") && (strings.HasSuffix(p, "/gifs/search") || strings.HasSuffix(p, "/gifs/trending")):
