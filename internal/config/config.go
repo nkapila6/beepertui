@@ -40,6 +40,7 @@ var Settings = []Setting{
 	{Key: "accent", Default: "blue", Kind: "color", Help: "accent colour: a palette name (blue, cyan, magenta...), 0-15, or #hex"},
 	{Key: "gif_provider", Default: "auto", Kind: "choice", Choices: []string{"auto", "klipy", "giphy", "memegen"}, Help: "GIF search: auto uses whichever key is set (BEEPERTUI_KLIPY_KEY / BEEPERTUI_GIPHY_KEY), else free memegen.link memes"},
 	{Key: "beeper_url", Default: "http://localhost:23373", Kind: "string", Env: "BEEPER_URL", Help: "Beeper Desktop API address"},
+	{Key: "autostart_beeper", Default: "true", Kind: "bool", Env: "BEEPERTUI_AUTOSTART", Help: "start Beeper Desktop hidden in the background when it isn't running"},
 }
 
 var colorNames = []string{"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",

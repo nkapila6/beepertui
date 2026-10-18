@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -38,6 +41,7 @@ env vars override them:
   BEEPERTUI_IMAGES     kitty | blocks | off
   BEEPERTUI_NERDFONT   1 for nerd font icons
   BEEPERTUI_MOUSE      off to disable mouse capture
+  BEEPERTUI_AUTOSTART  0 to stop beepertui starting Beeper Desktop for you
   BEEPERTUI_KLIPY_KEY  KLIPY key for GIF search
   BEEPERTUI_GIPHY_KEY  GIPHY key for GIF search
 
@@ -65,6 +69,7 @@ func main() {
 		fmt.Println(usage)
 		return
 	case "login":
+		ensureBeeper(cfg, base)
 		if _, err := login(base); err != nil {
 			fail(err)
 		}
@@ -91,6 +96,7 @@ func main() {
 		fail(fmt.Errorf("unknown command %q, try beepertui help", cmd))
 	}
 
+	ensureBeeper(cfg, base)
 	token := os.Getenv("BEEPER_ACCESS_TOKEN")
 	if token == "" {
 		token = auth.Load()
@@ -125,6 +131,69 @@ func login(base string) (string, error) {
 	}
 	fmt.Println("Logged in. Token saved to " + auth.Where() + ".")
 	return token, nil
+}
+
+// ensureBeeper starts Beeper Desktop hidden when its API isn't answering,
+// then waits for it. Remote URLs are left alone since we can't start those.
+func ensureBeeper(cfg *config.Config, base string) {
+	if !cfg.Bool("autostart_beeper") || !isLocal(base) || reachable(base) {
+		return
+	}
+	if err := launchBeeper(); err != nil {
+		return // the usual "can't reach" error explains what to do
+	}
+	fmt.Print("starting Beeper Desktop in the background...")
+	for deadline := time.Now().Add(30 * time.Second); time.Now().Before(deadline); time.Sleep(time.Second) {
+		if reachable(base) {
+			fmt.Println(" ok")
+			return
+		}
+	}
+	fmt.Println(" still not answering after 30s")
+}
+
+func isLocal(base string) bool {
+	u, err := url.Parse(base)
+	if err != nil {
+		return false
+	}
+	switch u.Hostname() {
+	case "localhost", "127.0.0.1", "::1":
+		return true
+	}
+	return false
+}
+
+func launchBeeper() error {
+	var c *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		// -g leaves focus in the terminal, -j launches it hidden
+		c = exec.Command("open", "-g", "-j", "-b", "com.automattic.beeper.desktop")
+	case "windows":
+		exe := filepath.Join(os.Getenv("LOCALAPPDATA"), "Programs", "beeper", "Beeper.exe")
+		if _, err := os.Stat(exe); err != nil {
+			return err
+		}
+		c = exec.Command("cmd", "/c", "start", "/min", "", exe)
+	default:
+		var bin string
+		for _, name := range []string{"beeper", "beeper-desktop"} {
+			if p, err := exec.LookPath(name); err == nil {
+				bin = p
+				break
+			}
+		}
+		if bin == "" {
+			return errors.New("beeper not found in PATH")
+		}
+		c = exec.Command(bin)
+		// own session, so closing the terminal doesn't take Beeper down with it
+		if s, err := exec.LookPath("setsid"); err == nil {
+			c = exec.Command(s, "-f", bin)
+		}
+	}
+	return c.Start()
 }
 
 func reachable(base string) bool {

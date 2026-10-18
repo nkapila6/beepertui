@@ -49,6 +49,8 @@ That opens Beeper's approval page in your browser. Click approve and the token i
 
 `BEEPER_ACCESS_TOKEN` still works and wins over the saved token if you'd rather manage it yourself. `BEEPER_URL` overrides the API address.
 
+If Beeper Desktop isn't running, beepertui starts it hidden in the background and waits for the API to come up. Turn that off with `beepertui config set autostart_beeper false`.
+
 ## Keys
 
 | key | does |
@@ -139,7 +141,7 @@ beepertui config unset accent
 beepertui config edit                 # opens $EDITOR
 ```
 
-Inside the app, `:set` lists the settings and `:set compact true` changes one live and saves it. You can set `nerd_font`, `images`, `image_size`, `avatars`, `compact`, `mouse`, `notifications`, `chat_width`, `inbox`, `accent`, `gif_provider` and `beeper_url`. Env vars like `BEEPERTUI_NERDFONT` still win over the file. Font and font size belong to your terminal, not the app, so set those in kitty/Ghostty/etc.
+Inside the app, `:set` lists the settings and `:set compact true` changes one live and saves it. You can set `nerd_font`, `images`, `image_size`, `avatars`, `compact`, `mouse`, `notifications`, `chat_width`, `inbox`, `accent`, `gif_provider`, `beeper_url` and `autostart_beeper`. Env vars like `BEEPERTUI_NERDFONT` still win over the file. Font and font size belong to your terminal, not the app, so set those in kitty/Ghostty/etc.
 
 ## Looks
 
