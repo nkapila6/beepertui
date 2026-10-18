@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -106,23 +107,60 @@ func memeURL(t memeTemplate, lines []string) string {
 	return memegenBase + "images/" + path + ext
 }
 
-// captionMeme asks for the captions, then sends the meme.
-func (m *Model) captionMeme(r gifResult) tea.Cmd {
-	t := *r.meme
-	hint := "top / bottom"
-	if t.Lines > 2 {
-		hint = fmt.Sprintf("%d lines split by /", t.Lines)
+type memeCaptionMsg struct{ seq int }
+
+// splitCaption turns "top / bottom" into lines.
+func splitCaption(s string) []string {
+	if strings.TrimSpace(s) == "" {
+		return nil
 	}
-	return m.prompt("caption ("+hint+", empty for none)", "", func(m *Model, s string) tea.Cmd {
-		var lines []string
-		if strings.TrimSpace(s) != "" {
-			lines = strings.Split(s, " / ")
-			if len(lines) == 1 {
-				lines = strings.Split(s, "/")
-			}
-		}
-		r.sendURL = memeURL(t, lines)
-		cmd := m.startInsert()
-		return tea.Batch(cmd, m.sendGif(r))
-	})
+	if parts := strings.Split(s, " / "); len(parts) > 1 {
+		return parts
+	}
+	return strings.Split(s, "/")
+}
+
+// captionKey drives the caption step inside the picker: typing updates a
+// live preview (after a short pause), enter sends, esc goes back.
+func (m *Model) captionKey(k tea.KeyPressMsg) tea.Cmd {
+	g := m.gif
+	switch k.String() {
+	case "esc":
+		g.captioning, g.capURL = nil, ""
+		m.line.Prompt = "gif> "
+		m.line.SetValue(g.savedQuery)
+		m.line.CursorEnd()
+		return tea.Batch(m.loadGifPreview(), m.placeGifPreview())
+	case "enter":
+		r := *g.captioning
+		r.sendURL = memeURL(*r.meme, splitCaption(m.line.Value()))
+		return tea.Batch(m.closeGif(), m.sendGif(r))
+	}
+	before := m.line.Value()
+	var cmd tea.Cmd
+	m.line, cmd = m.line.Update(k)
+	if m.line.Value() == before {
+		return cmd
+	}
+	g.seq++
+	seq := g.seq
+	return tea.Batch(cmd, tea.Tick(450*time.Millisecond, func(time.Time) tea.Msg { return memeCaptionMsg{seq} }))
+}
+
+// refreshMemePreview points the preview at the captioned image (always a
+// still PNG, so animated templates preview quickly too).
+func (m *Model) refreshMemePreview() tea.Cmd {
+	g := m.gif
+	if g == nil || g.captioning == nil {
+		return nil
+	}
+	lines := splitCaption(m.line.Value())
+	if len(lines) == 0 {
+		g.capURL = ""
+	} else {
+		t := *g.captioning.meme
+		t.Styles = nil // png preview even for animated templates
+		g.capURL = memeURL(t, lines)
+	}
+	return tea.Batch(m.loadGifPreview(), m.placeGifPreview())
 }

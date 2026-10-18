@@ -47,6 +47,12 @@ type gifPicker struct {
 	seq      int // ignores responses to stale queries
 	preview  map[string]*thumb
 	provider string
+
+	// caption step for memes: the picked template, the live preview url, and
+	// the search to go back to
+	captioning *gifResult
+	capURL     string
+	savedQuery string
 }
 
 type gifSearchMsg struct{ seq int }
@@ -271,25 +277,41 @@ func giphySearch(ctx context.Context, q string) ([]gifResult, error) {
 	return res, nil
 }
 
+// current is the preview on show: the captioned meme while captioning, else
+// the highlighted result. The key doubles as the preview cache key.
+func (g *gifPicker) current() (key, url string) {
+	if g.captioning != nil {
+		if g.capURL != "" {
+			return g.capURL, g.capURL
+		}
+		return g.captioning.slug, g.captioning.previewURL
+	}
+	if g.cur < len(g.results) {
+		r := g.results[g.cur]
+		return r.slug, r.previewURL
+	}
+	return "", ""
+}
+
 // loadGifPreview fetches the highlighted result's still for the preview.
 func (m *Model) loadGifPreview() tea.Cmd {
 	g := m.gif
-	if g == nil || g.cur >= len(g.results) {
+	if g == nil || (g.captioning == nil && g.cur >= len(g.results)) {
 		return nil
 	}
-	r := g.results[g.cur]
-	if r.previewURL == "" || g.preview[r.slug] != nil {
+	key, previewURL := g.current()
+	if previewURL == "" || g.preview[key] != nil {
 		return nil
 	}
 	t := &thumb{loading: true}
-	g.preview[r.slug] = t
+	g.preview[key] = t
 	kitty := m.imageMode == imagesKitty
 	if kitty {
 		m.nextImageID++
 		t.id = kittyFirstID + 0x10000 + m.nextImageID
 	}
 	return m.run("", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
-		path, err := fetchTemp(ctx, r.previewURL, "beepertui-gifprev-*.jpg")
+		path, err := fetchTemp(ctx, previewURL, "beepertui-gifprev-*.img")
 		var png []byte
 		var w, h int
 		var img image.Image
@@ -348,6 +370,9 @@ func fetchTemp(ctx context.Context, u, pattern string) (string, error) {
 
 func (m *Model) gifKey(k tea.KeyPressMsg) tea.Cmd {
 	g := m.gif
+	if g.captioning != nil {
+		return m.captionKey(k)
+	}
 	switch k.String() {
 	case "esc":
 		return m.closeGif()
@@ -367,7 +392,12 @@ func (m *Model) gifKey(k tea.KeyPressMsg) tea.Cmd {
 		}
 		r := g.results[g.cur]
 		if r.meme != nil {
-			return tea.Batch(m.closeGif(), m.captionMeme(r))
+			// captions are typed right here, with a live preview
+			g.captioning, g.capURL = &r, ""
+			g.savedQuery = m.line.Value()
+			m.line.Prompt = "caption> "
+			m.line.SetValue("")
+			return tea.Batch(m.loadGifPreview(), m.placeGifPreview())
 		}
 		return tea.Batch(m.closeGif(), m.sendGif(r))
 	}
@@ -414,11 +444,13 @@ func (m *Model) sendGif(r gifResult) tea.Cmd {
 		replyTo = m.replyTo.ID
 		m.replyTo = nil
 	}
-	status := "sent gif"
+	what := "gif"
 	if r.meme != nil {
-		status = "sent meme"
+		what = "meme"
 	}
-	return m.run(status, func(ctx context.Context) (func(*Model) tea.Cmd, error) {
+	// downloads and uploads can take a few seconds, so say so straight away
+	m.setStatus("sending " + what + "...")
+	return m.run("sent "+what, func(ctx context.Context) (func(*Model) tea.Cmd, error) {
 		ext := ".gif"
 		if strings.HasSuffix(r.sendURL, ".png") {
 			ext = ".png"
@@ -439,8 +471,9 @@ func (m *Model) sendGif(r gifResult) tea.Cmd {
 		if _, err := m.c.SendAttachment(ctx, chatID, up, "", replyTo); err != nil {
 			return nil, err
 		}
+		done := func(m *Model) tea.Cmd { return tea.Batch(m.showToast("✓", "sent "+what), m.reloadOpenChat()) }
 		if provider != "klipy" {
-			return reloadAfter, nil
+			return done, nil
 		}
 		// tell KLIPY it was shared, as their API asks; best effort
 		share := klipyBase + url.PathEscape(klipyKey()) + "/gifs/share/" + url.PathEscape(r.slug) + "?customer_id=" + customerID()
@@ -449,7 +482,7 @@ func (m *Model) sendGif(r gifResult) tea.Cmd {
 				resp.Body.Close()
 			}
 		}
-		return reloadAfter, nil
+		return done, nil
 	})
 }
 
@@ -476,10 +509,11 @@ func (m *Model) gifGeometry() (h, listW, prevW int) {
 // placeGifPreview sizes the highlighted preview's kitty placement to the box.
 func (m *Model) placeGifPreview() tea.Cmd {
 	g := m.gif
-	if g == nil || g.cur >= len(g.results) {
+	if g == nil {
 		return nil
 	}
-	t := g.preview[g.results[g.cur].slug]
+	key, _ := g.current()
+	t := g.preview[key]
 	if t == nil || !t.sent {
 		return nil
 	}
@@ -515,9 +549,23 @@ func (m *Model) renderGif() string {
 		}
 	}
 
+	if g.captioning != nil {
+		list = []string{
+			stBold.Render(truncate(g.captioning.title, listW)),
+			"",
+			stText.Render("type the captions:"),
+			stAccent.Render("  top / bottom"),
+			"",
+			stDim.Render("the preview updates"),
+			stDim.Render("as you type"),
+			"",
+			stDim.Render("enter sends"),
+			stDim.Render("esc back to templates"),
+		}
+	}
 	var prev []string
-	if g.cur < len(g.results) {
-		if t := g.preview[g.results[g.cur].slug]; t != nil && !t.loading && !t.failed {
+	if key, _ := g.current(); key != "" {
+		if t := g.preview[key]; t != nil && !t.loading && !t.failed {
 			if t.sent && t.placedCols > 0 {
 				prev = kittyLines(t.id, t.placedCols, t.placedRows)
 			} else if t.img != nil {

@@ -231,6 +231,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.fixMsgScroll()
 		return m, tea.Batch(m.placeImages(), m.placePopup(), m.placeGifPreview(), m.afterResize())
 
+	case memeCaptionMsg:
+		if m.gif != nil && m.gif.seq == msg.seq {
+			return m, m.refreshMemePreview()
+		}
+		return m, nil
+
 	case gifSearchMsg:
 		if m.gif != nil && m.gif.seq == msg.seq {
 			return m, m.searchGifs()
