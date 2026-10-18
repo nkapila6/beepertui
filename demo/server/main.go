@@ -94,12 +94,12 @@ func seed() {
 	addChat("design", "Design Team", "Slack", "group", 3, []obj{priya, sam, lena}, obj{"isPinned": true, "lastReadMessageSortKey": "1006"})
 	msg("design", "priya", "Priya Shah", 26*h, "morning all, new onboarding mocks are in figma", nil)
 	msg("design", "sam", "Sam Okafor", 25*h, "looking now", nil)
-	msg("design", "", "", 3*h, "the empty states look <b>so</b> much better", nil)
+	msg("design", "", "", 3*h, "the empty states look <b>so</b> much better", obj{"seen": obj{"priya": ts(170 * mn), "sam": ts(160 * mn), "lena": ts(150 * mn)}})
 	msg("design", "lena", "Lena Fischer", 2*h+40*mn, `did anyone see the new <a href="https://github.com/nkapila6/beepertui">terminal client</a> for beeper?`, obj{
 		"links": []obj{{"url": "https://github.com/nkapila6/beepertui", "title": "nkapila6/beepertui", "summary": "A terminal client for Beeper Desktop with vim keys and flash.nvim-style labels."}},
 	})
 	msg("design", "sam", "Sam Okafor", 2*h+30*mn, "flash labels for replying is such a good idea", obj{"reactions": []obj{react("\U0001F525", "priya"), react("\U0001F525", "lena")}})
-	msg("design", "", "", 2*h, "been using it all morning tbh", nil)
+	msg("design", "", "", 2*h, "been using it all morning tbh", obj{"seen": obj{"priya": ts(110 * mn), "sam": ts(95 * mn), "lena": false}})
 	msg("design", "priya", "Priya Shah", 40*mn, "ok here's the final hero for the landing page", obj{
 		"type": "IMAGE", "attachments": []obj{{"id": "a1", "type": "img", "srcURL": img, "mimeType": "image/png", "fileName": "hero-final.png"}},
 	})

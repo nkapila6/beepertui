@@ -65,13 +65,20 @@ func (m *Model) hoverLayers() []*lipgloss.Layer {
 		return nil
 	}
 	i := m.hover.msg
-	if i >= len(m.msgs) || len(m.msgs[i].Reactions) == 0 {
+	if i >= len(m.msgs) {
 		return nil
 	}
-	keys, who := m.reactorsByKey(m.msgs[i])
-	lines := make([]string, len(keys))
-	for k, key := range keys {
-		lines[k] = key + "  " + stText.Render(truncate(strings.Join(who[key], ", "), 50))
+	var lines []string
+	if m.hover.what == "seen" {
+		lines = m.seenDetail(m.msgs[i])
+	} else {
+		keys, who := m.reactorsByKey(m.msgs[i])
+		for _, key := range keys {
+			lines = append(lines, key+"  "+stText.Render(truncate(strings.Join(who[key], ", "), 50)))
+		}
+	}
+	if len(lines) == 0 {
+		return nil
 	}
 	box := stOverlay.Render(strings.Join(lines, "\n"))
 	x := clamp(m.hover.x+2, 0, max(0, m.w-lipgloss.Width(box)))
@@ -84,6 +91,7 @@ func (m *Model) hoverLayers() []*lipgloss.Layer {
 
 type hoverState struct {
 	msg, x, y int
+	what      string // reactions or seen
 }
 
 // mouseMoved updates the hover target: a message's reaction row under the pointer.
@@ -94,8 +102,15 @@ func (m *Model) mouseMoved(x, y int) {
 	}
 	rows := m.msgRows()
 	row := y - 2
-	if row < 0 || row >= len(rows) || rows[row].idx < 0 || !rows[row].reactions {
+	if row < 0 || row >= len(rows) || rows[row].idx < 0 {
 		return
 	}
-	m.hover = &hoverState{msg: rows[row].idx, x: x, y: y}
+	switch rows[row].kind {
+	case lineReact:
+		m.hover = &hoverState{msg: rows[row].idx, x: x, y: y, what: "reactions"}
+	case lineTick, lineSeen:
+		if m.msgs[rows[row].idx].IsSender {
+			m.hover = &hoverState{msg: rows[row].idx, x: x, y: y, what: "seen"}
+		}
+	}
 }

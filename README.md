@@ -139,7 +139,7 @@ Inside the app, `:set` lists the settings and `:set compact true` changes one li
 
 ## Looks
 
-Senders get their own colour, days get a divider, and there's a `── new ──` line where you left off. Your messages show a ✓ when sent and ✓✓ once seen. Chats show their avatar: the real one in Ghostty and kitty, coloured initials elsewhere.
+Senders get their own colour, days get a divider, and there's a `── new ──` line where you left off. Your messages show a ✓ when sent and ✓✓ once seen. Your latest message always says who's seen it (`seen by Priya, Sam · 2 of 3`), any of yours shows the same when you scroll onto it, and hovering the ✓✓ lists everyone with times. Chats show their avatar: the real one in Ghostty and kitty, coloured initials elsewhere.
 
 With a [Nerd Font](https://www.nerdfonts.com) installed, set `BEEPERTUI_NERDFONT=1` (or `:icons on`) to get network logos, nicer status icons and a lualine-style status line. `:avatars`, `:compact` and `:images` toggle the rest.
 

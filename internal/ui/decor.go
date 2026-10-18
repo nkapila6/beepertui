@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"encoding/json"
 	"hash/fnv"
 	"image/color"
 	"strconv"
@@ -78,23 +77,6 @@ func laterSortKey(a, b string) bool {
 	return a > b
 }
 
-// seenByAnyone reads the loosely typed "seen" field: a bool, a timestamp, or a map per participant.
-func seenByAnyone(raw json.RawMessage) bool {
-	if len(raw) == 0 || string(raw) == "null" || string(raw) == "false" {
-		return false
-	}
-	var obj map[string]json.RawMessage
-	if json.Unmarshal(raw, &obj) == nil {
-		for _, v := range obj {
-			if string(v) != "false" && string(v) != "null" {
-				return true
-			}
-		}
-		return false
-	}
-	return true // true, or a timestamp
-}
-
 // tick is the delivery mark after your own messages.
 func (m *Model) tick(msg beeper.Message) string {
 	if !msg.IsSender {
@@ -109,7 +91,7 @@ func (m *Model) tick(msg beeper.Message) string {
 		return stDim.Render(" " + m.icon("sending", "sending"))
 	case strings.HasPrefix(status, "FAIL"):
 		return stErr.Render(" " + m.icon("failed", "failed"))
-	case seenByAnyone(msg.Seen):
+	case parseSeen(msg.Seen).seen:
 		return stAccent.Render(" " + m.icon("seen", "✓✓"))
 	}
 	return stDim.Render(" " + m.icon("sent", "✓"))

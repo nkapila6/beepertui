@@ -311,11 +311,11 @@ func (m *Model) renderChats() string {
 }
 
 type msgRow struct {
-	idx       int // message index, -1 for padding above short chats
-	text      string
-	top       bool // first line of the message itself, where labels go
-	lead      bool // day rule, "new" rule or spacing above the message
-	reactions bool // the reaction pills (or the who-reacted line under them)
+	idx  int // message index, -1 for padding above short chats
+	text string
+	top  bool // first line of the message itself, where labels go
+	lead bool // day rule, "new" rule or spacing above the message
+	kind lineKind
 }
 
 // msgRows is the message pane line by line, exactly msgSpace() rows. The mouse
@@ -327,17 +327,9 @@ func (m *Model) msgRows() []msgRow {
 	first, last := m.msgRange()
 	var rows []msgRow
 	for i := first; i <= last; i++ {
-		lines, pre := m.msgBlockParts(i)
-		// reactions are the last line, plus the who-reacted line when selected
-		react := len(lines)
-		if n := len(m.msgs[i].Reactions); n > 0 {
-			react = len(lines) - 1
-			if i == m.msgCur && m.focus == paneMsgs {
-				react = len(lines) - 2
-			}
-		}
+		lines, pre, kinds := m.msgBlockParts(i)
 		for j, l := range lines {
-			rows = append(rows, msgRow{idx: i, text: l, top: j == pre, lead: j < pre, reactions: j >= react})
+			rows = append(rows, msgRow{idx: i, text: l, top: j == pre, lead: j < pre, kind: kinds[j]})
 		}
 	}
 	space := m.msgSpace()
@@ -395,14 +387,25 @@ func (m *Model) renderMsgs() string {
 // msgBlock renders one message without the gutter. Consecutive messages from the
 // same sender within a few minutes skip the header.
 func (m *Model) msgBlock(i int) []string {
-	lines, _ := m.msgBlockParts(i)
+	lines, _, _ := m.msgBlockParts(i)
 	return lines
 }
 
+type lineKind int
+
+const (
+	lineContent lineKind = iota
+	lineLead             // day rule, "new" rule, spacing
+	lineTick             // the line carrying the ✓ / ✓✓
+	lineReact            // reaction pills and who reacted
+	lineSeen             // who saw it
+)
+
 // msgBlockParts renders one message plus whatever goes above it (day rule,
 // "new" rule, spacing). pre is how many of the lines are that lead-in, so the
-// cursor bar and flash label can skip them.
-func (m *Model) msgBlockParts(i int) (lines []string, pre int) {
+// cursor bar and flash label can skip them; kinds says what each line is,
+// for mouse hover.
+func (m *Model) msgBlockParts(i int) (lines []string, pre int, kinds []lineKind) {
 	msg := m.msgs[i]
 	w := m.msgTextWidth()
 
@@ -481,6 +484,7 @@ func (m *Model) msgBlockParts(i int) (lines []string, pre int) {
 		lines = append(lines, stDim.Render("["+strings.ToLower(firstNonEmpty(msg.Type, "message"))+"]"))
 	}
 
+	tickLine := -1
 	if t := m.tick(msg); t != "" && len(lines) > pre {
 		last := len(lines) - 1
 		if lipgloss.Width(lines[last])+lipgloss.Width(t) <= w {
@@ -488,7 +492,9 @@ func (m *Model) msgBlockParts(i int) (lines []string, pre int) {
 		} else {
 			lines = append(lines, t)
 		}
+		tickLine = len(lines) - 1
 	}
+	reactStart := len(lines)
 
 	if len(msg.Reactions) > 0 {
 		counts := map[string]int{}
@@ -523,7 +529,29 @@ func (m *Model) msgBlockParts(i int) (lines []string, pre int) {
 			lines = append(lines, stDim.Render(truncate(m.reactorsLine(msg), w)))
 		}
 	}
-	return lines, pre
+	seenStart := len(lines)
+	// seen status: always under your latest message, and under any of yours
+	// you scroll onto
+	if msg.IsSender && (i == m.lastOwnMessage() || i == m.msgCur && m.focus == paneMsgs) {
+		if sl := m.seenLine(msg); sl != "" {
+			lines = append(lines, stDim.Render(truncate(sl, w)))
+		}
+	}
+
+	kinds = make([]lineKind, len(lines))
+	for j := range kinds {
+		switch {
+		case j < pre:
+			kinds[j] = lineLead
+		case j == tickLine:
+			kinds[j] = lineTick
+		case j >= seenStart:
+			kinds[j] = lineSeen
+		case j >= reactStart:
+			kinds[j] = lineReact
+		}
+	}
+	return lines, pre, kinds
 }
 
 func (m *Model) renderCompose() string {
