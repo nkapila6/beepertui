@@ -1,14 +1,12 @@
 package ui
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"image"
 	"io"
 	"net/http"
 	"net/url"
@@ -226,7 +224,10 @@ func klipySearch(ctx context.Context, q string) ([]gifResult, error) {
 	var res []gifResult
 	for _, d := range out.Data.Data {
 		send := pick(d.File, func(s size) *media { return s.GIF }, "md", "hd", "sm")
-		still := pick(d.File, func(s size) *media { return s.JPG }, "sm", "md", "hd")
+		still := pick(d.File, func(s size) *media { return s.GIF }, "sm", "xs", "md")
+		if still == nil {
+			still = pick(d.File, func(s size) *media { return s.JPG }, "sm", "md", "hd")
+		}
 		if send == nil {
 			continue
 		}
@@ -272,6 +273,7 @@ func giphySearch(ctx context.Context, q string) ([]gifResult, error) {
 				FixedHeight      rendition `json:"fixed_height"`
 				Downsized        rendition `json:"downsized"`
 				FixedHeightStill rendition `json:"fixed_height_still"`
+				FixedHeightSmall rendition `json:"fixed_height_small"`
 			} `json:"images"`
 		} `json:"data"`
 	}
@@ -290,7 +292,7 @@ func giphySearch(ctx context.Context, q string) ([]gifResult, error) {
 		var w, h int
 		fmt.Sscan(send.Width, &w)
 		fmt.Sscan(send.Height, &h)
-		res = append(res, gifResult{source: "giphy", kind: "gif", slug: d.Slug, title: firstNonEmpty(d.Title, d.Slug), sendURL: send.URL, previewURL: d.Images.FixedHeightStill.URL, width: w, height: h})
+		res = append(res, gifResult{source: "giphy", kind: "gif", slug: d.Slug, title: firstNonEmpty(d.Title, d.Slug), sendURL: send.URL, previewURL: firstNonEmpty(d.Images.FixedHeightSmall.URL, d.Images.FixedHeightStill.URL), width: w, height: h})
 	}
 	return res, nil
 }
@@ -334,15 +336,10 @@ func (m *Model) loadGifPreview() tea.Cmd {
 		if err == nil {
 			path, err = fetchTemp(ctx, u, "beepertui-gifprev-*.img")
 		}
-		var png []byte
-		var w, h int
-		var img image.Image
+		var md media
 		if err == nil {
 			defer os.Remove(path)
-			png, w, h, err = shrinkPNG(ctx, path, "400")
-			if err == nil && !kitty {
-				img, _, err = image.Decode(bytes.NewReader(png))
-			}
+			md, err = loadMedia(ctx, path, 400, kitty)
 		}
 		return func(m *Model) tea.Cmd {
 			t.loading = false
@@ -350,12 +347,11 @@ func (m *Model) loadGifPreview() tea.Cmd {
 				t.failed = true
 				return nil
 			}
-			t.w, t.h, t.img = w, h, img
-			if kitty {
-				t.png, t.sent = png, true
-				return tea.Sequence(tea.Raw(kittyTransmit(t.id, png)), m.placeGifPreview())
+			var cmd tea.Cmd
+			if raw := m.setMedia(t, md, kitty); raw != "" {
+				cmd = tea.Raw(raw)
 			}
-			return nil
+			return tea.Sequence(cmd, m.placeGifPreview(), m.startAnim())
 		}, nil
 	})
 }
@@ -447,7 +443,7 @@ func (m *Model) closeGif() tea.Cmd {
 	if m.gif != nil {
 		for _, t := range m.gif.preview {
 			if t.sent {
-				b.WriteString(kittyDelete(t.id))
+				b.WriteString(t.deleteAll())
 			}
 		}
 	}
@@ -570,7 +566,7 @@ func (m *Model) placeGifPreview() tea.Cmd {
 		return nil
 	}
 	t.placedCols, t.placedRows = c, r
-	return tea.Raw(kittyPlace(t.id, c, r))
+	return tea.Raw(t.placeAll(c, r))
 }
 
 func (m *Model) renderGif() string {
@@ -607,9 +603,9 @@ func (m *Model) renderGif() string {
 	if key, _ := g.current(); key != "" {
 		if t := g.preview[key]; t != nil && !t.loading && !t.failed {
 			if t.sent && t.placedCols > 0 {
-				prev = kittyLines(t.id, t.placedCols, t.placedRows)
-			} else if t.img != nil {
-				prev = halfBlocks(t.img, prevW, h-6)
+				prev = kittyLines(t.frameID(), t.placedCols, t.placedRows)
+			} else if t.blockFrame() != nil {
+				prev = halfBlocks(t.blockFrame(), prevW, h-6)
 			}
 		} else {
 			prev = []string{stDim.Render("loading preview...")}

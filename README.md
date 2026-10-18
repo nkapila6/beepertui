@@ -86,7 +86,7 @@ Type `@` while writing and the chat's members pop up above the input. Keep typin
 
 `C-v` (while writing or not) grabs whatever is on the clipboard: a screenshot or copied image goes out as a real photo, and a file copied in Finder, Files or Explorer is attached as is. It has to be `C-v`, because `cmd+v` belongs to the terminal, which only pastes text. Dragging a file into the terminal attaches it too. `:attach <path>` works when you know the path. The next `enter` sends it along with any text.
 
-Images and video posters show inline. In Ghostty and kitty they're real images, drawn with the kitty graphics protocol. Everywhere else, tmux included, they fall back to chunky half-block thumbnails. HEIC and WebP work too. `o` opens the full thing, and `:images off` hides them. Set `BEEPERTUI_IMAGES=kitty|blocks|off` to override the detection.
+Images and video posters show inline, and GIFs play. In Ghostty and kitty they're real images, drawn with the kitty graphics protocol. Everywhere else, tmux included, they fall back to chunky half-block thumbnails. HEIC and WebP work too. `o` opens the full thing, and `:images off` hides them. Set `BEEPERTUI_IMAGES=kitty|blocks|off` to override the detection.
 
 `C-o` while writing picks a file (the Finder dialog on macOS, a folder browser elsewhere), and `:files` always gives the in-app browser.
 

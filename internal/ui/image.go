@@ -113,6 +113,11 @@ type thumb struct {
 	sent       bool
 	placedCols int
 	placedRows int
+
+	// animated GIFs (see anim.go)
+	frames []animFrame
+	frame  int
+	next   time.Time
 }
 
 func (t *thumb) ready() bool { return t != nil && (t.img != nil || t.sent) }
@@ -148,23 +153,18 @@ func (m *Model) loadThumbs() tea.Cmd {
 				m.nextImageID++
 				t.id = kittyFirstID + m.nextImageID
 			}
-			id := t.id
 			cmds = append(cmds, m.run("", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
 				path, err := m.localPath(ctx, src)
-				var (
-					img  image.Image
-					png  []byte
-					w, h int
-				)
+				var md media
 				if err == nil {
+					px := 160
 					if mode == imagesKitty {
-						png, w, h, err = shrinkPNG(ctx, path, kittyMaxPixel)
-					} else {
-						var b []byte
-						if b, _, _, err = shrinkPNG(ctx, path, "160"); err == nil {
-							img, _, err = image.Decode(bytes.NewReader(b))
+						px = 800
+						if isGIF(path) {
+							px = 400 // every frame is uploaded, keep them small
 						}
 					}
+					md, err = loadMedia(ctx, path, px, mode == imagesKitty)
 				}
 				return func(m *Model) tea.Cmd {
 					t.loading = false
@@ -173,14 +173,11 @@ func (m *Model) loadThumbs() tea.Cmd {
 						return nil
 					}
 					var cmd tea.Cmd
-					if mode == imagesKitty {
-						t.w, t.h, t.sent, t.png = w, h, true, png
-						cmd = tea.Raw(kittyTransmit(id, png))
-					} else {
-						t.img = img
+					if raw := m.setMedia(t, md, mode == imagesKitty); raw != "" {
+						cmd = tea.Raw(raw)
 					}
 					m.fixMsgScroll()
-					return tea.Sequence(cmd, m.placeImages())
+					return tea.Sequence(cmd, m.placeImages(), m.startAnim())
 				}, nil
 			}))
 		}
@@ -291,7 +288,7 @@ func (m *Model) placeImages() tea.Cmd {
 		if c == t.placedCols && r == t.placedRows {
 			continue
 		}
-		b.WriteString(kittyPlace(t.id, c, r))
+		b.WriteString(t.placeAll(c, r))
 		t.placedCols, t.placedRows = c, r
 	}
 	if b.Len() == 0 {
@@ -334,16 +331,17 @@ func (m *Model) thumbLines(src string, width int) []string {
 		if t.placedCols == 0 {
 			return nil
 		}
-		return kittyLines(t.id, t.placedCols, t.placedRows)
+		return kittyLines(t.frameID(), t.placedCols, t.placedRows)
 	}
-	if l, ok := t.lines[width]; ok {
+	key := width*1000 + t.frame // one cached render per frame and width
+	if l, ok := t.lines[key]; ok {
 		return l
 	}
-	lines := halfBlocks(t.img, min(width, blockMaxCols), blockMaxRows)
+	lines := halfBlocks(t.blockFrame(), min(width, blockMaxCols), blockMaxRows)
 	if t.lines == nil {
 		t.lines = map[int][]string{}
 	}
-	t.lines[width] = lines
+	t.lines[key] = lines
 	return lines
 }
 
@@ -401,13 +399,13 @@ func (m *Model) resendImages() tea.Cmd {
 			continue
 		}
 		c, r := kittySize(t, w, m.cellAspect)
-		b.WriteString(kittyTransmit(t.id, t.png))
-		b.WriteString(kittyPlace(t.id, c, r))
+		b.WriteString(t.resend())
+		b.WriteString(t.placeAll(c, r))
 		t.placedCols, t.placedRows = c, r
 	}
-	if p := m.popup; p != nil && p.id != 0 && len(p.png) > 0 {
-		b.WriteString(kittyTransmit(p.id, p.png))
-		p.cols, p.rows = 0, 0 // force placePopup to place again
+	if p := m.popup; p != nil && p.t != nil && p.t.sent {
+		b.WriteString(p.t.resend())
+		p.t.placedCols, p.t.placedRows = 0, 0 // force placePopup to place again
 	}
 	b.WriteString(m.avatarResend())
 	if b.Len() == 0 {

@@ -1,10 +1,8 @@
 package ui
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"image"
 	"io"
 	"os"
 	"path/filepath"
@@ -27,14 +25,8 @@ type popup struct {
 	loading bool
 	err     error
 
-	// kitty
-	id         uint32
-	w, h       int
-	cols, rows int
-	png        []byte
-
-	// blocks
-	img image.Image
+	// the picture itself, animated when it's a GIF
+	t *thumb
 }
 
 const popupFirstID = 0x7E0000
@@ -90,40 +82,39 @@ func (m *Model) openPopup(msgIdx int, a beeper.Attachment) tea.Cmd {
 	if mode == imagesOff {
 		mode = imagesBlocks
 	}
-	if mode == imagesKitty {
+	kitty := mode == imagesKitty
+	t := &thumb{loading: true}
+	if kitty {
 		m.nextImageID++
-		p.id = popupFirstID + m.nextImageID
+		t.id = popupFirstID + m.nextImageID
 	}
+	p.t = t
 	load := m.run("", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
 		path, err := m.localPath(ctx, p.src)
-		var (
-			png  []byte
-			img  image.Image
-			w, h int
-		)
+		var md media
 		if err == nil {
-			if mode == imagesKitty {
-				png, w, h, err = shrinkPNG(ctx, path, "1600")
-			} else {
-				var b []byte
-				if b, w, h, err = shrinkPNG(ctx, path, "400"); err == nil {
-					img, _, err = image.Decode(bytes.NewReader(b))
+			px := 400
+			if kitty {
+				px = 1600
+				if isGIF(path) {
+					px = 600
 				}
 			}
+			md, err = loadMedia(ctx, path, px, kitty)
 		}
 		return func(m *Model) tea.Cmd {
 			if m.popup != p {
 				return nil // closed or moved on while loading
 			}
-			p.loading, p.err = false, err
+			p.loading, p.err, t.loading = false, err, false
 			if err != nil {
 				return nil
 			}
-			p.w, p.h, p.img, p.png = w, h, img, png
-			if mode == imagesKitty {
-				return tea.Sequence(tea.Raw(kittyTransmit(p.id, png)), m.placePopup())
+			var cmd tea.Cmd
+			if raw := m.setMedia(t, md, kitty); raw != "" {
+				cmd = tea.Raw(raw)
 			}
-			return nil
+			return tea.Sequence(cmd, m.placePopup(), m.startAnim())
 		}, nil
 	})
 	return tea.Batch(cmd, load)
@@ -136,26 +127,27 @@ func (m *Model) popupBox() (cols, rows int) {
 
 func (m *Model) placePopup() tea.Cmd {
 	p := m.popup
-	if p == nil || p.id == 0 || p.w == 0 {
+	if p == nil || p.t == nil || !p.t.sent || p.t.w == 0 {
 		return nil
 	}
+	t := p.t
 	bw, bh := m.popupBox()
-	c, r := fitCells(p.w, p.h, min(bw, len(diacritics)), min(bh, len(diacritics)), m.cellAspect)
-	if c == p.cols && r == p.rows {
+	c, r := fitCells(t.w, t.h, min(bw, len(diacritics)), min(bh, len(diacritics)), m.cellAspect)
+	if c == t.placedCols && r == t.placedRows {
 		return nil
 	}
-	p.cols, p.rows = c, r
-	return tea.Raw(kittyPlace(p.id, c, r))
+	t.placedCols, t.placedRows = c, r
+	return tea.Raw(t.placeAll(c, r))
 }
 
 // closePopupImage frees the big copy in the terminal.
 func (m *Model) closePopupImage() tea.Cmd {
 	p := m.popup
 	m.popup = nil
-	if p == nil || p.id == 0 {
+	if p == nil || p.t == nil || !p.t.sent {
 		return nil
 	}
-	return tea.Raw(kittyDelete(p.id))
+	return tea.Raw(p.t.deleteAll())
 }
 
 func (m *Model) popupKey(key string) tea.Cmd {
@@ -219,10 +211,10 @@ func (m *Model) renderPopup() string {
 		body = []string{stDim.Render("loading...")}
 	case p.err != nil:
 		body = []string{stErr.Render("couldn't load: " + p.err.Error())}
-	case p.id != 0 && p.cols > 0:
-		body = kittyLines(p.id, p.cols, p.rows)
-	case p.img != nil:
-		body = halfBlocks(p.img, bw, bh)
+	case p.t != nil && p.t.sent && p.t.placedCols > 0:
+		body = kittyLines(p.t.frameID(), p.t.placedCols, p.t.placedRows)
+	case p.t != nil && p.t.blockFrame() != nil:
+		body = halfBlocks(p.t.blockFrame(), bw, bh)
 	}
 	img := lipgloss.Place(bw, bh, lipgloss.Center, lipgloss.Center, strings.Join(body, "\n"))
 	hint := stDim.Render("d download   o open   n/p next/prev   esc close")

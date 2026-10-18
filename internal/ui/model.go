@@ -124,10 +124,11 @@ type Model struct {
 	chatPct       int
 	notifications bool
 
-	hints    linkHints
-	menu     *ctxMenu
-	gif      *gifPicker
-	mediaTab string // last picker tab, reopened by ctrl+g
+	hints     linkHints
+	menu      *ctxMenu
+	gif       *gifPicker
+	mediaTab  string // last picker tab, reopened by ctrl+g
+	animating bool   // the GIF animation ticker is running
 
 	avatars     map[string]*avatar
 	showAvatars bool
@@ -230,6 +231,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.fixChatScroll()
 		m.fixMsgScroll()
 		return m, tea.Batch(m.placeImages(), m.placePopup(), m.placeGifPreview(), m.afterResize())
+
+	case animMsg:
+		return m, m.stepAnim()
 
 	case memeCaptionMsg:
 		if m.gif != nil && m.gif.seq == msg.seq {
