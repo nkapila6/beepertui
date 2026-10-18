@@ -83,6 +83,8 @@ func helpSections() []helpSection {
 			{"C-c", "clear the message (again to leave)"},
 			{"S-enter A-enter C-j", "new line"},
 			{"@name", "mention someone (tab picks, C-n/C-p move)"},
+			{":joy", "inline emoji (tab picks, :joy: swaps itself)"},
+			{"C-e", "emoji picker, inserts at the cursor"},
 			{"C-g  :gif", "search GIFs (needs BEEPERTUI_KLIPY_KEY)"},
 			{"C-v", "attach clipboard image or copied file"},
 			{"C-o  :files", "pick a file (Finder dialog on macOS)"},

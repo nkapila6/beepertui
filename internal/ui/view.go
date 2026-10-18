@@ -21,7 +21,7 @@ func (m *Model) composeHeight() int {
 	if m.replyTo != nil || m.editing != nil || m.attach != "" {
 		h++
 	}
-	if m.mention != nil {
+	if m.mention != nil || m.emoji != nil {
 		h++
 	}
 	return h
@@ -534,6 +534,9 @@ func (m *Model) renderCompose() string {
 	content := m.compose.View()
 	if banner != "" {
 		content = banner + "\n" + content
+	}
+	if el := m.renderEmojiSuggestions(w - 4); el != "" {
+		content = el + "\n" + content
 	}
 	if ml := m.renderMentions(w - 4); ml != "" {
 		content = ml + "\n" + content

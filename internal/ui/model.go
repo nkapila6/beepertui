@@ -99,6 +99,7 @@ type Model struct {
 	mouse        bool
 
 	mention          *mentionState
+	emoji            *emojiState
 	mentioned        map[string]string // "@Name" -> user id, for the draft being written
 	mentionDismissed int
 

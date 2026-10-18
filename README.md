@@ -53,7 +53,7 @@ That opens Beeper's approval page in your browser. Click approve and the token i
 | `h` `l` `tab` | switch between chats and messages |
 | `J` `K` | next / previous chat, from either pane |
 | `enter` | open chat / start writing |
-| `i` `a` | write. `enter` sends, `shift+enter` (or `alt+enter`, `C-j`) for a new line, `esc` leaves, `C-v` pastes an image, `C-c` clears, `@` mentions someone |
+| `i` `a` | write. `enter` sends, `shift+enter` (or `alt+enter`, `C-j`) for a new line, `esc` leaves, `C-v` pastes an image, `C-c` clears, `@` mentions someone, `:joy` (or `C-e`) adds emoji |
 | `s` | flash jump anywhere: labels every chat and message on screen at once |
 | `c` | flash just the chats and switch to one, from either pane |
 | `f` | link hints: every link on screen gets a label, pick one, then `o` opens it in the browser or `y` yanks it |

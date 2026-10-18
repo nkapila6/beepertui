@@ -277,6 +277,9 @@ func (m *Model) insertKey(k tea.KeyPressMsg) tea.Cmd {
 	if used, cmd := m.mentionKey(k.String()); used {
 		return cmd
 	}
+	if used, cmd := m.emojiKey(k.String()); used {
+		return cmd
+	}
 	switch k.String() {
 	case "esc":
 		m.mode = modeNormal
@@ -288,12 +291,15 @@ func (m *Model) insertKey(k tea.KeyPressMsg) tea.Cmd {
 		return m.pasteFromClipboard()
 	case "ctrl+g":
 		return m.openGifPicker("")
+	case "ctrl+e":
+		return m.openEmojiPicker()
 	case "ctrl+o":
 		return m.chooseFile()
 	}
 	var cmd tea.Cmd
 	m.compose, cmd = m.compose.Update(k)
 	m.updateMentions()
+	m.updateEmoji()
 	return cmd
 }
 
