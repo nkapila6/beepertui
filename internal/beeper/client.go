@@ -298,6 +298,14 @@ func (c *Client) Download(ctx context.Context, srcURL string) (string, error) {
 	return out.SrcURL, nil
 }
 
+// SearchChatMessages searches one chat's messages, including history not loaded yet.
+func (c *Client) SearchChatMessages(ctx context.Context, chatID, query string, limit int) (MessagePage, error) {
+	var p MessagePage
+	q := url.Values{"query": {query}, "limit": {strconv.Itoa(limit)}, "chatIDs": {chatID}}
+	err := c.do(ctx, http.MethodGet, "/v1/messages/search", q, nil, &p)
+	return p, err
+}
+
 func (c *Client) SearchMessages(ctx context.Context, query string, limit int) (MessagePage, error) {
 	var p MessagePage
 	q := url.Values{"query": {query}, "limit": {strconv.Itoa(limit)}}

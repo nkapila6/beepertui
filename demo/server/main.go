@@ -269,6 +269,20 @@ func main() {
 				return
 			}
 			j(w, obj{"access_token": "demo-token", "token_type": "Bearer", "expires_in": 3600})
+		case p == "/v1/messages/search":
+			q := strings.ToLower(r.URL.Query().Get("query"))
+			var hits []obj
+			for chatID, ms := range messages {
+				if want := r.URL.Query()["chatIDs"]; len(want) > 0 && want[0] != chatID {
+					continue
+				}
+				for _, m := range ms {
+					if strings.Contains(strings.ToLower(fmt.Sprint(m["text"])), q) {
+						hits = append(hits, m)
+					}
+				}
+			}
+			j(w, obj{"items": hits, "hasMore": false})
 		case p == "/demo/incoming":
 			// pretend someone else sent a message: /demo/incoming?chat=hike&from=omar&name=Omar+Haddad&text=hi
 			q := r.URL.Query()

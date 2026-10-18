@@ -23,7 +23,7 @@ func helpSections() []helpSection {
 	return []helpSection{
 		{"Anywhere", -1, [][]string{
 			{"tab  h  l", "switch pane"},
-			{"/", "search chats (esc clears)"},
+			{"/", "chat list: filter chats · messages: search this chat"},
 			{"[  ]", "prev / next inbox"},
 			{"J  K", "next / previous chat"},
 			{"c", "flash: switch to any chat"},

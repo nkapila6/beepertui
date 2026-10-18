@@ -202,6 +202,7 @@ func init() {
 		{"dm", "[name|handle|phone]", "start a direct chat", func(m *Model, arg string) tea.Cmd { return m.cmdDM(arg) }},
 		{"group", "<title>", "create a group chat", func(m *Model, arg string) tea.Cmd { return m.cmdGroup(arg) }},
 		{"search", "<words>", "search all messages", func(m *Model, arg string) tea.Cmd { return m.cmdSearch(arg) }},
+		{"find", "<words>", "search this chat's messages and jump to one (/ in the message pane)", func(m *Model, arg string) tea.Cmd { return m.findInChat(arg) }},
 		{"inbox", "primary|low-priority|archive|unread", "switch inbox", func(m *Model, arg string) tea.Cmd {
 			for i, n := range inboxes {
 				if strings.HasPrefix(n, arg) {
@@ -572,4 +573,59 @@ func mediaCmd(tab string) func(*Model, string) tea.Cmd {
 		}
 		return m.openPickerFor(tab, arg)
 	}
+}
+
+// findInChat is / in the message pane: search this chat, pick a match, jump to it.
+func (m *Model) findInChat(q string) tea.Cmd {
+	if m.cur == nil {
+		m.setErr("open a chat first")
+		return nil
+	}
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return m.prompt("find in "+truncate(m.cur.Title, 30), "", func(m *Model, s string) tea.Cmd {
+			if strings.TrimSpace(s) == "" {
+				return nil
+			}
+			return m.findInChat(s)
+		})
+	}
+	chat := *m.cur
+	loaded := append([]beeper.Message(nil), m.msgs...)
+	return m.run("", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
+		p, err := m.c.SearchChatMessages(ctx, chat.ID, q, 50)
+		hits := p.Items
+		if err != nil {
+			// fall back to what's loaded rather than failing outright
+			hits = nil
+			for i := len(loaded) - 1; i >= 0; i-- {
+				if strings.Contains(strings.ToLower(plainText(loaded[i].Text)), strings.ToLower(q)) {
+					hits = append(hits, loaded[i])
+				}
+			}
+		}
+		return func(m *Model) tea.Cmd {
+			if len(hits) == 0 {
+				m.setErr("nothing in " + chat.Title + " matches " + q)
+				return nil
+			}
+			items := make([]pickItem, len(hits))
+			for i, mm := range hits {
+				who := firstNonEmpty(mm.SenderName, "?")
+				if mm.IsSender {
+					who = "you"
+				}
+				items[i] = pickItem{
+					title:  shortTime(mm.Timestamp) + "  " + who,
+					detail: oneLine(plainText(mm.Text)),
+					value:  mm,
+				}
+			}
+			m.openPicker(fmt.Sprintf("%d in %s for %q", len(items), chat.Title, q), items, func(m *Model, it pickItem) tea.Cmd {
+				mm := it.value.(beeper.Message)
+				return m.openChatByID(mm.ChatID, mm.ID)
+			})
+			return nil
+		}, nil
+	})
 }

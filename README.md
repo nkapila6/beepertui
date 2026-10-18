@@ -67,7 +67,7 @@ That opens Beeper's approval page in your browser. Click approve and the token i
 | `O` | jump to this chat (or message) in Beeper Desktop |
 | `n` `N` | new DM, new group |
 | `[` `]` | cycle inbox: primary, low-priority, archive, unread |
-| `/` | search chats |
+| `/` | in the chat list: filter chats. In a chat: search that chat's messages and jump to one (also `:find`) |
 | `:` | command line: a panel lists every command as you type, `↑↓` picks, `tab` completes |
 | `C-r` | refresh |
 | `q` | quit |

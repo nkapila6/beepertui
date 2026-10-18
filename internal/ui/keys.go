@@ -131,6 +131,10 @@ func (m *Model) normalKey(key string) tea.Cmd {
 	case "i", "a":
 		return m.startInsert()
 	case "/":
+		// in a chat it searches that chat, in the list it filters chats
+		if m.focus == paneMsgs && m.cur != nil {
+			return m.findInChat("")
+		}
 		return m.promptSearch()
 	case ":":
 		return m.promptCommand("")
