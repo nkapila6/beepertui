@@ -105,7 +105,8 @@ func (m *Model) View() tea.View {
 	v.AltScreen = true
 	v.ReportFocus = true // so notifications know whether you're looking
 	if m.mouse {
-		v.MouseMode = tea.MouseModeCellMotion
+		// all motion, so hovering a reaction can show who reacted
+		v.MouseMode = tea.MouseModeAllMotion
 	}
 	unread := 0
 	for _, ch := range m.chats {
@@ -310,10 +311,11 @@ func (m *Model) renderChats() string {
 }
 
 type msgRow struct {
-	idx  int // message index, -1 for padding above short chats
-	text string
-	top  bool // first line of the message itself, where labels go
-	lead bool // day rule, "new" rule or spacing above the message
+	idx       int // message index, -1 for padding above short chats
+	text      string
+	top       bool // first line of the message itself, where labels go
+	lead      bool // day rule, "new" rule or spacing above the message
+	reactions bool // the reaction pills (or the who-reacted line under them)
 }
 
 // msgRows is the message pane line by line, exactly msgSpace() rows. The mouse
@@ -326,8 +328,16 @@ func (m *Model) msgRows() []msgRow {
 	var rows []msgRow
 	for i := first; i <= last; i++ {
 		lines, pre := m.msgBlockParts(i)
+		// reactions are the last line, plus the who-reacted line when selected
+		react := len(lines)
+		if n := len(m.msgs[i].Reactions); n > 0 {
+			react = len(lines) - 1
+			if i == m.msgCur && m.focus == paneMsgs {
+				react = len(lines) - 2
+			}
+		}
 		for j, l := range lines {
-			rows = append(rows, msgRow{idx: i, text: l, top: j == pre, lead: j < pre})
+			rows = append(rows, msgRow{idx: i, text: l, top: j == pre, lead: j < pre, reactions: j >= react})
 		}
 	}
 	space := m.msgSpace()
@@ -508,6 +518,10 @@ func (m *Model) msgBlockParts(i int) (lines []string, pre int) {
 			rs = append(rs, st.Render(" "+s+" "))
 		}
 		lines = append(lines, strings.Join(rs, " "))
+		// the selected message spells out who reacted
+		if i == m.msgCur && m.focus == paneMsgs {
+			lines = append(lines, stDim.Render(truncate(m.reactorsLine(msg), w)))
+		}
 	}
 	return lines, pre
 }

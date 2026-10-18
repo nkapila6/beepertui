@@ -91,6 +91,7 @@ func (m *Model) withOverlays(frame string) string {
 	layers = append(layers, m.hintLayers()...)
 	layers = append(layers, m.menuLayers()...)
 	layers = append(layers, m.paletteLayers()...)
+	layers = append(layers, m.hoverLayers()...)
 	if len(layers) == 0 {
 		return frame
 	}

@@ -125,6 +125,7 @@ type Model struct {
 	notifications bool
 
 	hints     linkHints
+	hover     *hoverState // reaction row under the mouse
 	menu      *ctxMenu
 	gif       *gifPicker
 	mediaTab  string // last picker tab, reopened by ctrl+g

@@ -16,6 +16,10 @@ func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 		return nil
 	}
 	ms := msg.Mouse()
+	if _, moved := msg.(tea.MouseMotionMsg); moved {
+		m.mouseMoved(ms.X, ms.Y)
+		return nil
+	}
 	_, wheel := msg.(tea.MouseWheelMsg)
 	_, click := msg.(tea.MouseClickMsg)
 	if m.mode == modeMenu && click {
