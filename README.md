@@ -1,8 +1,26 @@
 # beepertui
 
-A terminal client for Beeper, talking to the Beeper Desktop app running on your Mac. Vim-ish keys, and flash.nvim-style labels for picking a message to yank, reply to, react to, edit or delete.
+A terminal client for Beeper, talking to the Beeper Desktop app on your machine. Vim-ish keys, and flash.nvim-style labels for picking a chat or message to jump to, yank, reply to, react to, edit or delete.
+
+Works with [tuios](https://github.com/Gaurav-Gosain/tuios) themes and looks: the colours come from your terminal palette, so a tuios look restyles it.
 
 Beeper Desktop does the real work (bridges, encryption). This is just a frontend for its local API on `localhost:23373`.
+
+## Install
+
+```bash
+brew install nkapila6/tap/beepertui
+```
+
+or
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nkapila6/beepertui/main/install.sh | sh
+```
+
+The script drops the binary in `~/.local/bin` (set `BIN_DIR` to change that, `VERSION=0.0.1` to pin). On Windows, grab the zip from [releases](https://github.com/nkapila6/beepertui/releases). With Go installed, `go install github.com/nkapila6/beepertui@latest` works too.
+
+macOS gets everything. Linux and Windows work too, minus `C-v` image paste (use `:attach`). Yank on Linux needs `wl-copy`, `xclip` or `xsel`, otherwise it falls back to OSC52.
 
 ## Setup
 
@@ -11,7 +29,7 @@ Beeper Desktop does the real work (bridges, encryption). This is just a frontend
 
 ```bash
 export BEEPER_ACCESS_TOKEN=...
-go run .
+beepertui
 ```
 
 `BEEPER_URL` overrides the API address if you've moved it.
@@ -56,6 +74,10 @@ Images and video posters show inline. In Ghostty and kitty they're real images, 
 - Text that matches no emoji, or anything sent with `alt+enter`, goes out as a text reaction. Other Beeper clients display it as is.
 
 Commands worth knowing: `:search <words>` searches every message across every network, `:attach ~/file.pdf` stages a file for the next message, `:remind 2h`, `:expiry 24h` for disappearing messages, `:label`, `:accounts`, `:info`.
+
+## Themes and tuios
+
+tuios colours and looks are supported. There are no hardcoded colours. Everything uses your terminal's 16 ANSI colours and its default text colour, so it picks up whatever theme you run, light ones included. That makes it tuios compatible: apply a look (`tuios look apply tuios.dev/r/19000274`) and the app restyles with it. Inline images work inside tuios too. tuios forwards kitty Unicode placeholders and tells panes they're on Ghostty when the host terminal can draw them, so you get real images in a tuios pane on Ghostty or kitty, and half-block thumbnails otherwise.
 
 ## Not in here
 
