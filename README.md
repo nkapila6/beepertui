@@ -19,7 +19,7 @@ Beeper Desktop does the real work (bridges, encryption). This is just a frontend
 | ![search and commands](assets/demo/search.gif) | |
 | `/` searches inside a chat and jumps to the match, `:` lists every command | |
 
-The clips are recorded with [VHS](https://github.com/charmbracelet/vhs), which can't draw kitty graphics, so images show as blocks there. In Ghostty and kitty they look like the screenshot. Everyone in them is made up: `demo/record.sh` replays the clips against a fake API in `demo/server`.
+The clips are screen recordings of a real kitty window, made by `demo/kitty-record.sh` (macOS). Everyone in them is made up: the script drives the app against a fake API in `demo/server`. `demo/record.sh` still renders the same scenes with [VHS](https://github.com/charmbracelet/vhs), but VHS can't draw kitty graphics, so images come out as blocks there.
 
 ## Install
 

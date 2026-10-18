@@ -33,7 +33,8 @@ var mdLinks = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
 
 var (
 	challenge string
-	partyGIF  string // a generated animated gif, so the demo shows playback
+	partyGIF  string                // a generated animated gif, so the demo shows playback
+	uploads   = map[string]string{} // uploadID -> saved file, so sent images show up
 
 	mu        sync.Mutex
 	chats     []obj
@@ -216,13 +217,23 @@ func main() {
 			j(w, obj{"items": messages[parts[2]], "hasMore": false, "oldestCursor": "", "newestCursor": ""})
 		case len(parts) == 4 && parts[3] == "messages" && r.Method == "POST":
 			var body struct {
-				Text    string `json:"text"`
-				ReplyTo string `json:"replyToMessageID"`
+				Text       string `json:"text"`
+				ReplyTo    string `json:"replyToMessageID"`
+				Attachment *struct {
+					UploadID string `json:"uploadID"`
+					MimeType string `json:"mimeType"`
+					FileName string `json:"fileName"`
+				} `json:"attachment"`
 			}
 			json.NewDecoder(r.Body).Decode(&body)
 			extra := obj{}
 			if body.ReplyTo != "" {
 				extra["linkedMessageID"] = body.ReplyTo
+			}
+			if a := body.Attachment; a != nil && uploads[a.UploadID] != "" {
+				extra["type"] = "IMAGE"
+				extra["attachments"] = []obj{{"id": a.UploadID, "type": "img", "srcURL": "file://" + uploads[a.UploadID],
+					"mimeType": a.MimeType, "fileName": a.FileName, "isGif": a.MimeType == "image/gif"}}
 			}
 			add := func() {
 				msg(parts[2], "", "", 0, mdLinks.ReplaceAllString(body.Text, `<a href="$2">$1</a>`), extra)
@@ -331,8 +342,22 @@ func main() {
 		case strings.HasPrefix(p, "/media/"):
 			http.ServeFile(w, r, *imagePath)
 		case p == "/v1/assets/upload":
-			io.Copy(io.Discard, r.Body)
-			j(w, obj{"uploadID": "up1", "fileName": "gif.gif", "mimeType": "image/gif"})
+			f, hdr, err := r.FormFile("file")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			defer f.Close()
+			out, err := os.CreateTemp("", "demo-upload-*")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			io.Copy(out, f)
+			out.Close()
+			id := fmt.Sprintf("up%d", len(uploads)+1)
+			uploads[id] = out.Name()
+			j(w, obj{"uploadID": id, "fileName": hdr.Filename, "mimeType": hdr.Header.Get("Content-Type")})
 		case p == "/v1/accounts":
 			j(w, []obj{{"accountID": "x", "network": "WhatsApp", "status": "connected", "user": me}})
 		case p == "/v1/assets/download":
