@@ -46,6 +46,8 @@ beepertui
 | `c` | flash just the chats and switch to one, from either pane |
 | `C` | flash a chat, then a one-key menu: open, pin, mute, archive, low priority, read/unread, remind, info. `CC` = current chat |
 | `y` `r` `R` `e` `x` `o` `U` | flash pick, then yank / reply / react / edit / delete / open / unreact |
+| `v` `d` | flash pick, then view the image big / download the attachment to `~/Downloads` |
+| `enter` on an image | image viewer: `d` download, `o` open, `n`/`p` next and previous image, `esc` close |
 | `yy` `rr` `RR` ... | same thing on the message under the cursor |
 | `p` `m` `L` `A` `u` `!` | pin, mute, low priority, archive, read/unread, reminder |
 | `O` | jump to this chat (or message) in Beeper Desktop |

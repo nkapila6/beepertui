@@ -28,6 +28,8 @@ func (m *Model) handleKey(k tea.KeyPressMsg) tea.Cmd {
 		return m.pickerKey(k)
 	case modeHelp:
 		return m.helpKey(key)
+	case modePopup:
+		return m.popupKey(key)
 	}
 	return m.normalKey(key)
 }
@@ -53,6 +55,9 @@ func (m *Model) ctrlC() tea.Cmd {
 	case modePicker:
 		m.closePicker()
 		return nil
+	case modePopup:
+		m.mode = modeNormal
+		return m.closePopupImage()
 	}
 	m.mode = modeNormal
 	return nil
@@ -171,9 +176,15 @@ func (m *Model) normalKey(key string) tea.Cmd {
 	}
 
 	switch key {
-	case "y", "r", "R", "e", "x", "o", "U":
+	case "y", "r", "R", "e", "x", "o", "U", "v", "d":
 		m.startFlash(rune(key[0]))
 	case "enter":
+		// enter on an image opens the viewer, anywhere else it starts a message
+		if m.msgCur < len(m.msgs) {
+			if _, ok := messageImage(m.msgs[m.msgCur]); ok {
+				return m.viewImage(m.msgCur)
+			}
+		}
 		return m.startInsert()
 	}
 	return nil

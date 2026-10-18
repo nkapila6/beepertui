@@ -29,6 +29,7 @@ const (
 	modeConfirm
 	modePicker
 	modeHelp
+	modePopup
 )
 
 // pollEvery backstops bridges that never emit websocket events (iMessage, as of 2026).
@@ -89,6 +90,7 @@ type Model struct {
 	imageMode    imageMode
 	nextImageID  uint32
 	cellAspect   float64
+	popup        *popup
 	helpOff      int
 
 	// confirm
@@ -177,7 +179,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.line.SetWidth(max(10, m.w-20))
 		m.fixChatScroll()
 		m.fixMsgScroll()
-		return m, m.placeImages()
+		return m, tea.Batch(m.placeImages(), m.placePopup())
 
 	case doneMsg:
 		m.inflight = max(0, m.inflight-1)

@@ -122,6 +122,8 @@ func (m *Model) render() string {
 		body = m.renderPicker()
 	case modeHelp:
 		body = m.renderHelp()
+	case modePopup:
+		body = m.renderPopup()
 	default:
 		chats := m.paneStyle(paneChats).Width(m.chatWidth()).Height(m.bodyHeight() + 2).Render(m.renderChats())
 		msgs := m.paneStyle(paneMsgs).Width(m.msgWidth()).Height(m.bodyHeight() + 2).Render(m.renderMsgs())
@@ -445,6 +447,8 @@ func (m *Model) renderStatus() string {
 		return m.line.View()
 	case modeConfirm:
 		return stModeAlt.Render("CONFIRM") + " " + m.confirmText
+	case modePopup:
+		badge = stModeAlt.Render("VIEW")
 	default:
 		badge = stMode.Render("NORMAL")
 	}

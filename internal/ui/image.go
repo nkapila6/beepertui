@@ -237,18 +237,24 @@ func kittyTransmit(id uint32, png []byte) string {
 	return b.String()
 }
 
-// kittySize fits the image into the text width, keeping its aspect in cells.
-func kittySize(t *thumb, width int, aspect float64) (cols, rows int) {
-	if t.w == 0 || t.h == 0 {
+// fitCells sizes a w x h pixel image into at most maxCols x maxRows cells,
+// keeping its shape. aspect is cell height / width.
+func fitCells(w, h, maxCols, maxRows int, aspect float64) (cols, rows int) {
+	if w == 0 || h == 0 || maxCols <= 0 || maxRows <= 0 {
 		return 0, 0
 	}
-	cols = min(width, kittyMaxCols, len(diacritics))
-	rows = max(1, int(float64(cols)*float64(t.h)/float64(t.w)/aspect+0.5))
-	if rows > kittyMaxRows {
-		rows = kittyMaxRows
-		cols = max(1, int(float64(rows)*aspect*float64(t.w)/float64(t.h)+0.5))
+	cols = maxCols
+	rows = max(1, int(float64(cols)*float64(h)/float64(w)/aspect+0.5))
+	if rows > maxRows {
+		rows = maxRows
+		cols = max(1, int(float64(rows)*aspect*float64(w)/float64(h)+0.5))
 	}
-	return cols, rows
+	return min(cols, maxCols), rows
+}
+
+// kittySize fits a thumbnail into the text width.
+func kittySize(t *thumb, width int, aspect float64) (cols, rows int) {
+	return fitCells(t.w, t.h, min(width, kittyMaxCols, len(diacritics)), kittyMaxRows, aspect)
 }
 
 // placeImages (re)creates virtual placements whose size no longer matches the
@@ -268,7 +274,7 @@ func (m *Model) placeImages() tea.Cmd {
 		if c == t.placedCols && r == t.placedRows {
 			continue
 		}
-		fmt.Fprintf(&b, "\x1b_Ga=p,U=1,i=%d,p=1,c=%d,r=%d,C=1,q=2\x1b\\", t.id, c, r)
+		b.WriteString(kittyPlace(t.id, c, r))
 		t.placedCols, t.placedRows = c, r
 	}
 	if b.Len() == 0 {
@@ -277,12 +283,21 @@ func (m *Model) placeImages() tea.Cmd {
 	return tea.Raw(b.String())
 }
 
-func kittyLines(t *thumb) []string {
-	st := lipgloss.NewStyle().Foreground(lipgloss.Color(fmt.Sprintf("#%06x", t.id&0xFFFFFF)))
-	lines := make([]string, t.placedRows)
-	for r := range t.placedRows {
+func kittyPlace(id uint32, cols, rows int) string {
+	return fmt.Sprintf("\x1b_Ga=p,U=1,i=%d,p=1,c=%d,r=%d,C=1,q=2\x1b\\", id, cols, rows)
+}
+
+func kittyDelete(id uint32) string {
+	return fmt.Sprintf("\x1b_Ga=d,d=I,i=%d,q=2\x1b\\", id)
+}
+
+// kittyLines prints the placeholder cells for a placed image.
+func kittyLines(id uint32, cols, rows int) []string {
+	st := lipgloss.NewStyle().Foreground(lipgloss.Color(fmt.Sprintf("#%06x", id&0xFFFFFF)))
+	lines := make([]string, rows)
+	for r := range rows {
 		var sb strings.Builder
-		for c := range t.placedCols {
+		for c := range cols {
 			sb.WriteRune(placeholder)
 			sb.WriteRune(diacritics[r])
 			sb.WriteRune(diacritics[c])
@@ -302,12 +317,12 @@ func (m *Model) thumbLines(src string, width int) []string {
 		if t.placedCols == 0 {
 			return nil
 		}
-		return kittyLines(t)
+		return kittyLines(t.id, t.placedCols, t.placedRows)
 	}
 	if l, ok := t.lines[width]; ok {
 		return l
 	}
-	lines := halfBlocks(t.img, width)
+	lines := halfBlocks(t.img, min(width, blockMaxCols), blockMaxRows)
 	if t.lines == nil {
 		t.lines = map[int][]string{}
 	}
@@ -315,17 +330,14 @@ func (m *Model) thumbLines(src string, width int) []string {
 	return lines
 }
 
-func halfBlocks(img image.Image, width int) []string {
+func halfBlocks(img image.Image, maxCols, maxRows int) []string {
 	b := img.Bounds()
 	if b.Dx() == 0 || b.Dy() == 0 {
 		return nil
 	}
-	cols := min(width, blockMaxCols, b.Dx())
-	rows := max(1, cols*b.Dy()/b.Dx()/2)
-	if rows > blockMaxRows {
-		rows = blockMaxRows
-		cols = max(1, rows*2*b.Dx()/b.Dy())
-	}
+	// a half block cell is two pixels tall, so the cell aspect is effectively 1:1 in pixels
+	cols, rows := fitCells(b.Dx(), b.Dy(), min(maxCols, b.Dx()), maxRows*2, 1)
+	rows = max(1, (rows+1)/2)
 	px := func(x, y int) color.Color {
 		// box sample the source area that maps to this pixel
 		x0, x1 := b.Min.X+x*b.Dx()/cols, b.Min.X+(x+1)*b.Dx()/cols

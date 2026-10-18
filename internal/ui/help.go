@@ -58,6 +58,9 @@ func helpSections() []helpSection {
 			{"e", "edit (yours)"},
 			{"x", "delete (yours, asks first)"},
 			{"o", "open link or attachment"},
+			{"enter on image", "image viewer"},
+			{"v", "view an image big"},
+			{"d", "download attachment to ~/Downloads"},
 			{"U", "remove your reaction"},
 			{"O", "show message in Beeper"},
 			{"p m A L u !", "act on the open chat"},
@@ -65,7 +68,7 @@ func helpSections() []helpSection {
 		{"Flash labels", -1, [][]string{
 			{"s", "everything on screen, both panes"},
 			{"c  C", "chats only (switch / action menu)"},
-			{"y r R e x o U", "messages only"},
+			{"y r R e x o U v d", "messages only"},
 			{"<label>", "act on that message"},
 			{"yy rr CC ...", "act on the cursor item"},
 			{"esc", "cancel"},
@@ -87,6 +90,12 @@ func helpSections() []helpSection {
 			{"alt+enter", "send what you typed as a text reaction"},
 			{"no match + enter", "same, e.g. \"lol\" or \"same\""},
 			{"up  down", "pick from the list"},
+		}},
+		{"Image viewer", -1, [][]string{
+			{"d", "download to ~/Downloads"},
+			{"o", "open in default app"},
+			{"n  p", "next / previous image in chat"},
+			{"esc  q", "close"},
 		}},
 		{"Lists and prompts", -1, [][]string{
 			{"type", "filter"},

@@ -28,7 +28,7 @@ func (f flashState) label(p pane, i int) (string, bool) {
 }
 
 var flashVerbs = map[rune]string{
-	's': "jump", 'c': "chat", 'C': "chat action", 'y': "yank", 'r': "reply", 'R': "react", 'e': "edit", 'x': "delete", 'o': "open", 'U': "unreact",
+	's': "jump", 'c': "chat", 'C': "chat action", 'y': "yank", 'r': "reply", 'R': "react", 'e': "edit", 'x': "delete", 'o': "open", 'U': "unreact", 'v': "view", 'd': "download",
 }
 
 func (m *Model) startFlash(action rune) {
@@ -184,6 +184,10 @@ func (m *Model) flashDo(t target) tea.Cmd {
 		return m.open(msg)
 	case 'U':
 		return m.unreact(msg)
+	case 'v':
+		return m.viewImage(i)
+	case 'd':
+		return m.downloadMsg(msg)
 	}
 	return nil
 }
