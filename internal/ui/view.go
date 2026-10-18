@@ -17,10 +17,14 @@ const gutter = 3
 // layout
 
 func (m *Model) composeHeight() int {
+	h := 3
 	if m.replyTo != nil || m.editing != nil || m.attach != "" {
-		return 4
+		h++
 	}
-	return 3
+	if m.mention != nil {
+		h++
+	}
+	return h
 }
 
 // bodyHeight is the inner height of the two panes.
@@ -99,6 +103,9 @@ func (m *Model) fixMsgScroll() {
 func (m *Model) View() tea.View {
 	v := tea.NewView(m.render())
 	v.AltScreen = true
+	if m.mouse {
+		v.MouseMode = tea.MouseModeCellMotion
+	}
 	unread := 0
 	for _, ch := range m.chats {
 		if !ch.IsMuted {
@@ -257,25 +264,23 @@ func (m *Model) renderChats() string {
 	return strings.Join(rows, "\n")
 }
 
-func (m *Model) renderMsgs() string {
-	if m.cur == nil {
-		return stDim.Render(" pick a chat (enter, or s for labels)")
-	}
-	title := stBold.Render(" "+truncate(oneLine(m.cur.Title), m.msgWidth()-20)) + stDim.Render("  "+m.cur.Network)
-	if len(m.msgs) == 0 {
-		return title + "\n" + stDim.Render(" no messages")
+type msgRow struct {
+	idx  int // message index, -1 for padding above short chats
+	text string
+	top  bool
+}
+
+// msgRows is the message pane line by line, exactly msgSpace() rows. The mouse
+// code uses it too, to map a click back to a message.
+func (m *Model) msgRows() []msgRow {
+	if m.cur == nil || len(m.msgs) == 0 {
+		return nil
 	}
 	first, last := m.msgRange()
-
-	type row struct {
-		idx  int
-		text string
-		top  bool
-	}
-	var rows []row
+	var rows []msgRow
 	for i := first; i <= last; i++ {
 		for j, l := range m.msgBlock(i) {
-			rows = append(rows, row{i, l, j == 0})
+			rows = append(rows, msgRow{i, l, j == 0})
 		}
 	}
 	space := m.msgSpace()
@@ -287,12 +292,28 @@ func (m *Model) renderMsgs() string {
 			rows[k].top = false
 		}
 	}
-
-	out := []string{title}
-	for k := len(rows); k < space; k++ {
-		out = append(out, "")
+	pad := make([]msgRow, space-len(rows))
+	for k := range pad {
+		pad[k].idx = -1
 	}
+	return append(pad, rows...)
+}
+
+func (m *Model) renderMsgs() string {
+	if m.cur == nil {
+		return stDim.Render(" pick a chat (enter, or s for labels)")
+	}
+	title := stBold.Render(" "+truncate(oneLine(m.cur.Title), m.msgWidth()-20)) + stDim.Render("  "+m.cur.Network)
+	if len(m.msgs) == 0 {
+		return title + "\n" + stDim.Render(" no messages")
+	}
+	rows := m.msgRows()
+	out := []string{title}
 	for _, r := range rows {
+		if r.idx < 0 {
+			out = append(out, "")
+			continue
+		}
 		g := strings.Repeat(" ", gutter)
 		switch {
 		case m.mode == modeFlash:
@@ -421,6 +442,9 @@ func (m *Model) renderCompose() string {
 	content := m.compose.View()
 	if banner != "" {
 		content = banner + "\n" + content
+	}
+	if ml := m.renderMentions(w - 4); ml != "" {
+		content = ml + "\n" + content
 	}
 	st := stPane
 	if m.mode == modeInsert {

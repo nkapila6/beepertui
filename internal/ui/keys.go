@@ -46,6 +46,7 @@ func (m *Model) ctrlC() tea.Cmd {
 			m.replyTo, m.editing = nil, nil
 			m.setAttach("", false)
 			m.setStatus("cleared")
+			m.mention, m.mentioned = nil, nil
 			return nil
 		}
 		m.compose.Blur()
@@ -104,6 +105,18 @@ func (m *Model) normalKey(key string) tea.Cmd {
 		return nil
 	case "G":
 		return m.move(1 << 30)
+	case "J", "K":
+		// next / previous chat from anywhere, without leaving the message pane
+		if len(m.chats) == 0 {
+			return nil
+		}
+		d := 1
+		if key == "K" {
+			d = -1
+		}
+		m.chatCur = clamp(m.chatCur+d, 0, len(m.chats)-1)
+		m.fixChatScroll()
+		return m.openChat(m.chats[m.chatCur], "")
 	case "i", "a":
 		return m.startInsert()
 	case "/":
@@ -247,6 +260,9 @@ func (m *Model) startInsert() tea.Cmd {
 }
 
 func (m *Model) insertKey(k tea.KeyPressMsg) tea.Cmd {
+	if used, cmd := m.mentionKey(k.String()); used {
+		return cmd
+	}
 	switch k.String() {
 	case "esc":
 		m.mode = modeNormal
@@ -259,6 +275,7 @@ func (m *Model) insertKey(k tea.KeyPressMsg) tea.Cmd {
 	}
 	var cmd tea.Cmd
 	m.compose, cmd = m.compose.Update(k)
+	m.updateMentions()
 	return cmd
 }
 
@@ -267,6 +284,8 @@ func (m *Model) submitCompose() tea.Cmd {
 	if m.cur == nil || (text == "" && m.attach == "") {
 		return nil
 	}
+	text = m.withMentionLinks(text)
+	m.mention, m.mentioned, m.mentionDismissed = nil, nil, -1
 	chatID := m.cur.ID
 	m.compose.SetValue("")
 

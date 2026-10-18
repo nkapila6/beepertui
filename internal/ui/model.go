@@ -91,7 +91,12 @@ type Model struct {
 	nextImageID  uint32
 	cellAspect   float64
 	popup        *popup
-	helpOff      int
+	mouse        bool
+
+	mention          *mentionState
+	mentioned        map[string]string // "@Name" -> user id, for the draft being written
+	mentionDismissed int
+	helpOff          int
 
 	// confirm
 	confirmText string
@@ -128,6 +133,9 @@ func New(c *beeper.Client) *Model {
 		showImages: true,
 		imageMode:  detectImageMode(),
 		cellAspect: cellAspect(),
+		mouse:      mouseDefault(),
+
+		mentionDismissed: -1,
 	}
 	go c.Stream(ctx, m.events)
 	return m
@@ -216,6 +224,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		return m, m.handleKey(msg)
+
+	case tea.MouseMsg:
+		return m, m.handleMouse(msg)
 
 	case tea.PasteMsg:
 		// a file dragged into the terminal arrives as its path
@@ -348,6 +359,7 @@ func (m *Model) openChat(ch beeper.Chat, jumpTo string) tea.Cmd {
 		m.replyTo, m.editing = nil, nil
 		m.setAttach("", false)
 		m.compose.SetValue("")
+		m.mention, m.mentioned = nil, nil
 		if ch.Draft != nil {
 			m.compose.SetValue(ch.Draft.Text)
 		}

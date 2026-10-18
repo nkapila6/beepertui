@@ -40,8 +40,9 @@ beepertui
 | --- | --- |
 | `j` `k` `gg` `G` `C-d` `C-u` | move |
 | `h` `l` `tab` | switch between chats and messages |
+| `J` `K` | next / previous chat, from either pane |
 | `enter` | open chat / start writing |
-| `i` `a` | write. `enter` sends, `esc` leaves, `C-v` pastes an image, `C-c` clears |
+| `i` `a` | write. `enter` sends, `esc` leaves, `C-v` pastes an image, `C-c` clears, `@` mentions someone |
 | `s` | flash jump anywhere: labels every chat and message on screen at once |
 | `c` | flash just the chats and switch to one, from either pane |
 | `C` | flash a chat, then a one-key menu: open, pin, mute, archive, low priority, read/unread, remind, info. `CC` = current chat |
@@ -59,6 +60,14 @@ beepertui
 | `q` | quit |
 
 `?` opens the full key reference, split by pane, with the pane you're in highlighted. The bottom-left corner always shows a short cheat sheet for whatever has focus.
+
+## Mouse
+
+Click a chat to open it, click a message to select it (click an image again to view it), click an inbox tab to switch, click the compose box to write. The wheel scrolls chats, messages, and images in the viewer. Mouse capture means you need shift (or option, depending on your terminal) to select text. `:mouse off` turns it off, or set `BEEPERTUI_MOUSE=off`.
+
+## Mentions
+
+Type `@` while writing and the chat's members pop up above the input. Keep typing to filter (surnames work), `tab` or `enter` picks, `C-n`/`C-p` move, `esc` hides the list. Picked names go out as proper mentions.
 
 ## Images and files
 

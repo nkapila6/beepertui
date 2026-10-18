@@ -205,6 +205,11 @@ func init() {
 			m.setStatus("images off")
 			return nil
 		}},
+		{"mouse", "[on|off]", "toggle mouse (off lets the terminal select text)", func(m *Model, arg string) tea.Cmd {
+			m.mouse = arg == "on" || (arg == "" && !m.mouse)
+			m.setStatus(map[bool]string{true: "mouse on", false: "mouse off, terminal selection works again"}[m.mouse])
+			return nil
+		}},
 		{"older", "", "load older messages", func(m *Model, _ string) tea.Cmd { return m.loadOlder() }},
 		{"refresh", "", "refetch everything", func(m *Model, _ string) tea.Cmd { return tea.Batch(m.loadChats(), m.reloadOpenChat()) }},
 		{"help", "", "show keys", func(m *Model, _ string) tea.Cmd { m.mode, m.helpOff = modeHelp, 0; return nil }},
