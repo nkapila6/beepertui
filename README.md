@@ -94,7 +94,7 @@ Images and video posters show inline. In Ghostty and kitty they're real images, 
 
 `C-g` while writing (or `:gif cats`) opens the GIF picker: search as you type, trending when empty, a preview of the highlighted one, `enter` sends.
 
-With no key it works out of the box on [memegen.link](https://memegen.link) (free, open source): 200+ meme templates, the animated ones sent as GIFs. Pick one, type captions as `top / bottom`, done. `:meme` always opens these.
+With no key it works out of the box on [memegen.link](https://memegen.link) (free, open source): 200+ meme templates, the animated ones sent as GIFs. Search by what you mean, not just the name: `cheating`, `regret`, `dog fire panic`, `lord of the rings` all find the right one. Pick it, type captions as `top / bottom` with a live preview, done. `:meme` always opens these.
 
 For a full GIF library, set a free key from [KLIPY](https://partner.klipy.com) (`BEEPERTUI_KLIPY_KEY`) or [GIPHY](https://developers.giphy.com) (`BEEPERTUI_GIPHY_KEY`). Tenor's API shut down in 2026. `gif_provider` in the config picks between them.
 

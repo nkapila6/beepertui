@@ -2,11 +2,13 @@ package ui
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -58,8 +60,70 @@ func memegenTemplates(ctx context.Context) ([]memeTemplate, error) {
 	return ts, json.NewDecoder(resp.Body).Decode(&ts)
 }
 
-// memeSearch filters the template list locally: animated ones first, then
-// matches on id, name or keywords.
+//go:embed memekeywords.json
+var memeKeywordsJSON []byte
+
+// memeKeywords is our own search words per template (memegen's are mostly
+// empty): what the meme means, the mood, when people use it, who's in it.
+var memeKeywords = func() map[string]string {
+	k := map[string]string{}
+	json.Unmarshal(memeKeywordsJSON, &k)
+	return k
+}()
+
+// searchFields is everything a template can be found by, with a weight each.
+func (t memeTemplate) searchFields() []struct {
+	words  []string
+	weight int
+} {
+	split := func(s string) []string {
+		return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+			return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9')
+		})
+	}
+	return []struct {
+		words  []string
+		weight int
+	}{
+		{split(t.Name + " " + t.ID), 4},
+		{split(memeKeywords[t.ID] + " " + strings.Join(t.Keywords, " ")), 3},
+		{split(strings.Join(t.Example.Text, " ")), 1},
+	}
+}
+
+// memeScore is how well a template matches the query: every typed word has
+// to hit something (name, keywords or example caption), and better fields
+// and whole-word hits score higher. 0 means no match.
+func memeScore(t memeTemplate, q string) int {
+	terms := strings.Fields(strings.ToLower(q))
+	if len(terms) == 0 {
+		return 1
+	}
+	fields := t.searchFields()
+	total := 0
+	for _, term := range terms {
+		best := 0
+		for _, f := range fields {
+			for _, w := range f.words {
+				switch {
+				case w == term:
+					best = max(best, f.weight*3)
+				case strings.HasPrefix(w, term):
+					best = max(best, f.weight*2)
+				case len(term) >= 4 && strings.Contains(w, term):
+					best = max(best, f.weight)
+				}
+			}
+		}
+		if best == 0 {
+			return 0
+		}
+		total += best
+	}
+	return total
+}
+
+// memeSearch ranks templates by memeScore. With no query, animated ones come first.
 func (m *Model) memeSearch(ctx context.Context, q string) ([]gifResult, error) {
 	ts := m.memeCache
 	if ts == nil {
@@ -68,22 +132,35 @@ func (m *Model) memeSearch(ctx context.Context, q string) ([]gifResult, error) {
 			return nil, err
 		}
 	}
-	q = strings.ToLower(strings.TrimSpace(q))
-	var anim, still []gifResult
+	type scored struct {
+		r     gifResult
+		score int
+	}
+	var hits []scored
+	seen := map[string]bool{}
 	for _, t := range ts {
-		hay := strings.ToLower(t.ID + " " + t.Name + " " + strings.Join(t.Keywords, " "))
-		if q != "" && !strings.Contains(hay, q) {
+		if seen[t.ID] {
+			continue // memegen lists a couple of templates twice
+		}
+		seen[t.ID] = true
+		sc := memeScore(t, q)
+		if sc == 0 {
 			continue
 		}
+		t := t
 		r := gifResult{slug: t.ID, title: t.Name, previewURL: t.Blank, meme: &t}
 		if t.animated() {
 			r.title += "  (gif)"
-			anim = append(anim, r)
-		} else {
-			still = append(still, r)
+			sc++ // nudge animated ones up among equals
 		}
+		hits = append(hits, scored{r, sc})
 	}
-	return append(anim, still...), nil
+	sort.SliceStable(hits, func(a, b int) bool { return hits[a].score > hits[b].score })
+	out := make([]gifResult, len(hits))
+	for i, h := range hits {
+		out[i] = h.r
+	}
+	return out, nil
 }
 
 // memeURL builds the image URL for a template and captions, using memegen's
