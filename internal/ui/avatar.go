@@ -79,7 +79,7 @@ func (m *Model) avatarLines(ch beeper.Chat) [2]string {
 		return [2]string{l[0], l[1]}
 	}
 	c := hashColor(ch.ID)
-	badge := lipgloss.NewStyle().Background(c).Foreground(colLabelF).Bold(true)
+	badge := pill(c)
 	// the second line is a half block in the same colour, so the badge reads as one rounded-ish tile
 	return [2]string{
 		badge.Render(padCenter(initials(ch.Title), avatarCols)),

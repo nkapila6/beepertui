@@ -638,7 +638,7 @@ type segment struct {
 func (m *Model) segments(segs []segment, rightSide bool) string {
 	var b strings.Builder
 	for i, sg := range segs {
-		bg := sg.st.GetBackground()
+		bg := fill(sg.st)
 		if m.nerdFont && rightSide {
 			b.WriteString(lipgloss.NewStyle().Foreground(bg).Render("\uE0B6"))
 		}

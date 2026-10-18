@@ -6,6 +6,17 @@ Works with [tuios](https://github.com/Gaurav-Gosain/tuios) themes and looks: the
 
 Beeper Desktop does the real work (bridges, encryption). This is just a frontend for its local API on `localhost:23373`.
 
+![beepertui in kitty](assets/demo/screenshot.png)
+
+| | |
+| --- | --- |
+| ![browsing chats](assets/demo/tour.gif) | ![flash labels: reply, react, yank](assets/demo/flash.gif) |
+| Browsing: avatars, sender colours, day and "new" dividers, link cards | Flash labels: `r` reply, `R` react by emoji name, `yy` yank, `s` jump |
+| ![switching chats](assets/demo/switch.gif) | ![writing and links](assets/demo/compose.gif) |
+| Switching: `cc` fuzzy chat list, `J`/`K`, `c` labels, `C` chat menu | Writing: `@` mentions, multi-line, `f` link hints, image viewer |
+
+The clips are recorded with [VHS](https://github.com/charmbracelet/vhs), which can't draw kitty graphics, so images show as blocks there. In Ghostty and kitty they look like the screenshot. Everyone in them is made up: `demo/record.sh` replays the clips against a fake API in `demo/server`.
+
 ## Install
 
 ```bash
