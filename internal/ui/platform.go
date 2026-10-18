@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"errors"
 	"os/exec"
 	"path/filepath"
@@ -50,13 +49,4 @@ func copyText(text string) error {
 	}
 	cmd.Stdin = strings.NewReader(text)
 	return cmd.Run()
-}
-
-var errPasteUnsupported = errors.New("pasting images is macOS only for now, use :attach <path>")
-
-func pasteSupported(context.Context) error {
-	if runtime.GOOS != "darwin" {
-		return errPasteUnsupported
-	}
-	return nil
 }

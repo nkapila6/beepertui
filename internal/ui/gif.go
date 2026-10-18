@@ -32,8 +32,9 @@ var klipyBase = firstNonEmpty(os.Getenv("BEEPERTUI_KLIPY_URL"), "https://api.kli
 
 type gifResult struct {
 	slug, title   string
-	sendURL       string // the gif that gets uploaded to the chat
-	previewURL    string // a small still for the picker
+	meme          *memeTemplate // set for memegen results, captioned before sending
+	sendURL       string        // the gif that gets uploaded to the chat
+	previewURL    string        // a small still for the picker
 	width, height int
 }
 
@@ -57,6 +58,8 @@ func giphyKey() string { return strings.TrimSpace(os.Getenv("BEEPERTUI_GIPHY_KEY
 func (m *Model) gifProvider() string {
 	want := m.cfg.String("gif_provider")
 	switch {
+	case want == "memegen":
+		return "memegen"
 	case want == "klipy" && klipyKey() != "":
 		return "klipy"
 	case want == "giphy" && giphyKey() != "":
@@ -66,12 +69,16 @@ func (m *Model) gifProvider() string {
 	case want == "auto" && giphyKey() != "":
 		return "giphy"
 	}
-	return ""
+	// no key: free memes from memegen.link
+	return "memegen"
 }
 
 func providerName(p string) string {
-	if p == "giphy" {
+	switch p {
+	case "giphy":
 		return "GIPHY"
+	case "memegen":
+		return "memegen.link (set BEEPERTUI_KLIPY_KEY or BEEPERTUI_GIPHY_KEY for real GIF search)"
 	}
 	return "KLIPY"
 }
@@ -94,11 +101,16 @@ func (m *Model) openGifPicker(query string) tea.Cmd {
 		m.setErr("open a chat first")
 		return nil
 	}
-	if m.gifProvider() == "" {
-		m.setErr("GIF search needs a free key: BEEPERTUI_KLIPY_KEY (partner.klipy.com) or BEEPERTUI_GIPHY_KEY (developers.giphy.com)")
+	return m.openPickerFor(m.gifProvider(), query)
+}
+
+// openPickerFor opens the GIF picker on a given provider; :meme forces memegen.
+func (m *Model) openPickerFor(provider, query string) tea.Cmd {
+	if m.cur == nil {
+		m.setErr("open a chat first")
 		return nil
 	}
-	m.gif = &gifPicker{query: query, preview: map[string]*thumb{}, provider: m.gifProvider()}
+	m.gif = &gifPicker{query: query, preview: map[string]*thumb{}, provider: provider}
 	m.mode = modeGif
 	m.line.Prompt = "gif> "
 	m.line.SetValue(query)
@@ -113,11 +125,21 @@ func (m *Model) searchGifs() tea.Cmd {
 	g.loading = true
 	return m.run("", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
 		search := klipySearch
-		if provider == "giphy" {
+		switch provider {
+		case "giphy":
 			search = giphySearch
+		case "memegen":
+			search = func(ctx context.Context, q string) ([]gifResult, error) { return m.memeSearch(ctx, q) }
 		}
 		res, err := search(ctx, q)
 		return func(m *Model) tea.Cmd {
+			if provider == "memegen" && m.memeCache == nil && err == nil {
+				for _, r := range res {
+					if r.meme != nil {
+						m.memeCache = append(m.memeCache, *r.meme)
+					}
+				}
+			}
 			if m.gif == nil || m.gif.seq != seq {
 				return nil
 			}
@@ -344,6 +366,9 @@ func (m *Model) gifKey(k tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 		r := g.results[g.cur]
+		if r.meme != nil {
+			return tea.Batch(m.closeGif(), m.captionMeme(r))
+		}
 		return tea.Batch(m.closeGif(), m.sendGif(r))
 	}
 	before := m.line.Value()
@@ -389,12 +414,20 @@ func (m *Model) sendGif(r gifResult) tea.Cmd {
 		replyTo = m.replyTo.ID
 		m.replyTo = nil
 	}
-	return m.run("sent gif", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
-		path, err := fetchTemp(ctx, r.sendURL, "beepertui-gif-*.gif")
+	status := "sent gif"
+	if r.meme != nil {
+		status = "sent meme"
+	}
+	return m.run(status, func(ctx context.Context) (func(*Model) tea.Cmd, error) {
+		ext := ".gif"
+		if strings.HasSuffix(r.sendURL, ".png") {
+			ext = ".png"
+		}
+		path, err := fetchTemp(ctx, r.sendURL, "beepertui-gif-*"+ext)
 		if err != nil {
 			return nil, err
 		}
-		named := filepath.Join(filepath.Dir(path), safeName(r.slug)+".gif")
+		named := filepath.Join(filepath.Dir(path), safeName(r.slug)+ext)
 		if os.Rename(path, named) == nil {
 			path = named
 		}

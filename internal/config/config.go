@@ -38,7 +38,7 @@ var Settings = []Setting{
 	{Key: "chat_width", Default: "32", Kind: "int:20-60", Help: "chat list width, percent of the window"},
 	{Key: "inbox", Default: "primary", Kind: "choice", Choices: []string{"primary", "low-priority", "archive", "unread"}, Help: "inbox shown at startup"},
 	{Key: "accent", Default: "blue", Kind: "color", Help: "accent colour: a palette name (blue, cyan, magenta...), 0-15, or #hex"},
-	{Key: "gif_provider", Default: "auto", Kind: "choice", Choices: []string{"auto", "klipy", "giphy"}, Help: "GIF search: auto uses whichever key is set (BEEPERTUI_KLIPY_KEY / BEEPERTUI_GIPHY_KEY)"},
+	{Key: "gif_provider", Default: "auto", Kind: "choice", Choices: []string{"auto", "klipy", "giphy", "memegen"}, Help: "GIF search: auto uses whichever key is set (BEEPERTUI_KLIPY_KEY / BEEPERTUI_GIPHY_KEY), else free memegen.link memes"},
 	{Key: "beeper_url", Default: "http://localhost:23373", Kind: "string", Env: "BEEPER_URL", Help: "Beeper Desktop API address"},
 }
 

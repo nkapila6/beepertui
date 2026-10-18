@@ -78,9 +78,11 @@ type Account struct {
 }
 
 type Upload struct {
-	UploadID string `json:"uploadID"`
-	FileName string `json:"fileName"`
-	MimeType string `json:"mimeType"`
+	UploadID string  `json:"uploadID"`
+	FileName string  `json:"fileName"`
+	MimeType string  `json:"mimeType"`
+	Width    float64 `json:"width"`
+	Height   float64 `json:"height"`
 }
 
 type Reaction struct {

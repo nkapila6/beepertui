@@ -195,6 +195,12 @@ func init() {
 			}
 			return m.openGifPicker(arg)
 		}},
+		{"meme", "[words]", "free memes from memegen.link, animated ones send as GIFs", func(m *Model, arg string) tea.Cmd {
+			if c := m.startInsert(); m.mode != modeInsert {
+				return c
+			}
+			return m.openPickerFor("memegen", arg)
+		}},
 		{"dm", "[name|handle|phone]", "start a direct chat", func(m *Model, arg string) tea.Cmd { return m.cmdDM(arg) }},
 		{"group", "<title>", "create a group chat", func(m *Model, arg string) tea.Cmd { return m.cmdGroup(arg) }},
 		{"search", "<words>", "search all messages", func(m *Model, arg string) tea.Cmd { return m.cmdSearch(arg) }},

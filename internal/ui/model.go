@@ -124,9 +124,10 @@ type Model struct {
 	chatPct       int
 	notifications bool
 
-	hints linkHints
-	menu  *ctxMenu
-	gif   *gifPicker
+	hints     linkHints
+	menu      *ctxMenu
+	gif       *gifPicker
+	memeCache []memeTemplate
 
 	avatars     map[string]*avatar
 	showAvatars bool

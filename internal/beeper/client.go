@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -205,7 +208,18 @@ func (c *Client) RemoveReaction(ctx context.Context, chatID, msgID, key string) 
 
 func (c *Client) SendAttachment(ctx context.Context, chatID string, up Upload, caption, replyTo string) (SendResult, error) {
 	var r SendResult
-	body := map[string]any{"attachment": map[string]string{"uploadID": up.UploadID}}
+	att := map[string]any{"uploadID": up.UploadID}
+	if up.MimeType != "" {
+		att["mimeType"] = up.MimeType
+		att["type"] = attachmentType(up.MimeType)
+	}
+	if up.FileName != "" {
+		att["fileName"] = up.FileName
+	}
+	if up.Width > 0 && up.Height > 0 {
+		att["size"] = map[string]float64{"width": up.Width, "height": up.Height}
+	}
+	body := map[string]any{"attachment": att}
 	if caption != "" {
 		body["text"] = caption
 	}
@@ -223,15 +237,28 @@ func (c *Client) Upload(ctx context.Context, path string) (Upload, error) {
 		return up, err
 	}
 	defer f.Close()
-	var buf bytes.Buffer
-	mw := multipart.NewWriter(&buf)
-	fw, err := mw.CreateFormFile("file", filepath.Base(path))
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return up, err
 	}
-	if _, err := io.Copy(fw, f); err != nil {
+	// Beeper decides image vs gif vs plain file from the mime type, and
+	// CreateFormFile would label everything application/octet-stream
+	mt := detectMime(path, data)
+	name := filepath.Base(path)
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	h := textproto.MIMEHeader{}
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename=%q`, name))
+	h.Set("Content-Type", mt)
+	fw, err := mw.CreatePart(h)
+	if err != nil {
 		return up, err
 	}
+	if _, err := fw.Write(data); err != nil {
+		return up, err
+	}
+	mw.WriteField("fileName", name)
+	mw.WriteField("mimeType", mt)
 	if err := mw.Close(); err != nil {
 		return up, err
 	}
@@ -327,4 +354,34 @@ func (c *Client) Focus(ctx context.Context, chatID, msgID string) error {
 		body["messageID"] = msgID
 	}
 	return c.do(ctx, http.MethodPost, "/v1/focus", nil, body, nil)
+}
+
+// detectMime sniffs the content, falling back to the extension, so a pasted
+// screenshot goes out as image/png rather than a generic file.
+func detectMime(path string, data []byte) string {
+	mt := http.DetectContentType(data)
+	if mt == "application/octet-stream" || strings.HasPrefix(mt, "text/plain") {
+		if byExt := mime.TypeByExtension(strings.ToLower(filepath.Ext(path))); byExt != "" {
+			return byExt
+		}
+	}
+	if i := strings.Index(mt, ";"); i >= 0 && !strings.HasPrefix(mt, "text/") {
+		mt = mt[:i]
+	}
+	return mt
+}
+
+// attachmentType maps a mime type to Beeper's attachment type hint.
+func attachmentType(mt string) string {
+	switch {
+	case mt == "image/gif":
+		return "gif"
+	case strings.HasPrefix(mt, "image/"):
+		return "image"
+	case strings.HasPrefix(mt, "video/"):
+		return "video"
+	case strings.HasPrefix(mt, "audio/"):
+		return "audio"
+	}
+	return "file"
 }

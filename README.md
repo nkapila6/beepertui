@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/nkapila6/beepertui/main/install.sh 
 
 The script drops the binary in `~/.local/bin` (set `BIN_DIR` to change that, `VERSION=0.0.1` to pin). On Windows, grab the zip from [releases](https://github.com/nkapila6/beepertui/releases). With Go installed, `go install github.com/nkapila6/beepertui@latest` works too.
 
-macOS gets everything. Linux and Windows work too, minus `C-v` image paste (use `:attach`). Yank on Linux needs `wl-copy`, `xclip` or `xsel`, otherwise it falls back to OSC52.
+macOS, Linux and Windows all work. On Linux, image paste and yank use `wl-clipboard` (Wayland) or `xclip` (X11), and `C-o` uses `zenity` or `kdialog` when they're installed (otherwise the built-in file browser). Yank falls back to OSC52 if no clipboard tool is around.
 
 ## Setup
 
@@ -84,15 +84,19 @@ Type `@` while writing and the chat's members pop up above the input. Keep typin
 
 ## Images and files
 
-While writing, `C-v` grabs whatever is on the macOS clipboard: a screenshot or copied image becomes a PNG, and a file copied in Finder is attached as is. Dragging a file into the terminal attaches it too. `:attach <path>` works when you know the path. The next `enter` sends it along with any text.
+`C-v` (while writing or not) grabs whatever is on the clipboard: a screenshot or copied image goes out as a real photo, and a file copied in Finder, Files or Explorer is attached as is. It has to be `C-v`, because `cmd+v` belongs to the terminal, which only pastes text. Dragging a file into the terminal attaches it too. `:attach <path>` works when you know the path. The next `enter` sends it along with any text.
 
 Images and video posters show inline. In Ghostty and kitty they're real images, drawn with the kitty graphics protocol. Everywhere else, tmux included, they fall back to chunky half-block thumbnails. HEIC and WebP work too. `o` opens the full thing, and `:images off` hides them. Set `BEEPERTUI_IMAGES=kitty|blocks|off` to override the detection.
 
 `C-o` while writing picks a file (the Finder dialog on macOS, a folder browser elsewhere), and `:files` always gives the in-app browser.
 
-## GIFs
+## GIFs and memes
 
-`C-g` while writing (or `:gif cats`) searches GIFs as you type, shows trending ones when the search box is empty, previews the highlighted one and sends it with `enter`. Tenor's API shut down in 2026, so it uses [KLIPY](https://partner.klipy.com) or [GIPHY](https://developers.giphy.com). Both are free with a key: set `BEEPERTUI_KLIPY_KEY` or `BEEPERTUI_GIPHY_KEY`. With both set, `gif_provider` picks one. Test keys on either get about 100 searches an hour.
+`C-g` while writing (or `:gif cats`) opens the GIF picker: search as you type, trending when empty, a preview of the highlighted one, `enter` sends.
+
+With no key it works out of the box on [memegen.link](https://memegen.link) (free, open source): 200+ meme templates, the animated ones sent as GIFs. Pick one, type captions as `top / bottom`, done. `:meme` always opens these.
+
+For a full GIF library, set a free key from [KLIPY](https://partner.klipy.com) (`BEEPERTUI_KLIPY_KEY`) or [GIPHY](https://developers.giphy.com) (`BEEPERTUI_GIPHY_KEY`). Tenor's API shut down in 2026. `gif_provider` in the config picks between them.
 
 ## Forwarding
 

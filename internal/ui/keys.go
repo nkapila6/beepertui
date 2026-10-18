@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-	"os"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -150,6 +149,9 @@ func (m *Model) normalKey(key string) tea.Cmd {
 	case "f":
 		m.startLinkHints()
 		return nil
+	case "ctrl+v":
+		// paste an image without going into insert mode first
+		return tea.Batch(m.startInsert(), m.pasteFromClipboard())
 	case "C":
 		m.startFlash('C')
 		return nil
@@ -335,7 +337,7 @@ func (m *Model) submitCompose() tea.Cmd {
 				return nil, err
 			}
 			if temp {
-				os.Remove(path)
+				removeTemp(path)
 			}
 			_, err = m.c.SendAttachment(ctx, chatID, up, text, replyTo)
 			return reloadAfter, err

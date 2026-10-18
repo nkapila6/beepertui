@@ -25,11 +25,12 @@ func (m *Model) chooseFile() tea.Cmd {
 		m.setErr("open a chat first")
 		return nil
 	}
-	if runtime.GOOS != "darwin" {
+	dialog := nativeDialog()
+	if dialog == nil {
 		return m.browseFiles("")
 	}
 	return m.run("", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
-		path, err := finderDialog(ctx)
+		path, err := dialog(ctx)
 		return func(m *Model) tea.Cmd {
 			switch {
 			case errors.Is(err, errCancelled):
@@ -43,6 +44,40 @@ func (m *Model) chooseFile() tea.Cmd {
 			return nil
 		}, nil
 	})
+}
+
+// nativeDialog is the desktop's own file picker if there is one: Finder on
+// macOS, zenity (GNOME) or kdialog (KDE) on Linux. nil means use the TUI browser.
+func nativeDialog() func(context.Context) (string, error) {
+	switch {
+	case runtime.GOOS == "darwin":
+		return finderDialog
+	case runtime.GOOS != "linux" || os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "":
+		return nil
+	case haveCmd("zenity"):
+		return func(ctx context.Context) (string, error) {
+			return runDialog(exec.CommandContext(ctx, "zenity", "--file-selection", "--title=Attach a file to send with beepertui"))
+		}
+	case haveCmd("kdialog"):
+		return func(ctx context.Context) (string, error) {
+			home, _ := os.UserHomeDir()
+			return runDialog(exec.CommandContext(ctx, "kdialog", "--getopenfilename", home))
+		}
+	}
+	return nil
+}
+
+// runDialog runs zenity/kdialog; both exit 1 when you cancel.
+func runDialog(cmd *exec.Cmd) (string, error) {
+	out, err := cmd.Output()
+	var ee *exec.ExitError
+	if errors.As(err, &ee) && ee.ExitCode() == 1 {
+		return "", errCancelled
+	}
+	if err != nil {
+		return "", fmt.Errorf("file dialog: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 func finderDialog(ctx context.Context) (string, error) {
