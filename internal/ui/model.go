@@ -85,6 +85,7 @@ type Model struct {
 	lineKind   string
 	lineSubmit func(*Model, string) tea.Cmd
 	lineKey    func(*Model, string) (bool, tea.Cmd)
+	paletteSel int
 
 	// flash
 	flash flashState

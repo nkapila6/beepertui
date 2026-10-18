@@ -40,6 +40,11 @@ func (m *Model) lineKeyPress(k tea.KeyPressMsg) tea.Cmd {
 			return cmd
 		}
 	}
+	if m.lineKind == ":" {
+		if used, cmd := m.paletteKey(key); used {
+			return cmd
+		}
+	}
 	switch key {
 	case "esc":
 		m.closeLine()
@@ -52,14 +57,13 @@ func (m *Model) lineKeyPress(k tea.KeyPressMsg) tea.Cmd {
 			return submit(m, v)
 		}
 		return nil
-	case "tab":
-		if m.lineKind == ":" {
-			m.completeCommand()
-			return nil
-		}
 	}
+	before := m.line.Value()
 	var cmd tea.Cmd
 	m.line, cmd = m.line.Update(k)
+	if m.line.Value() != before {
+		m.paletteSel = 0
+	}
 	return cmd
 }
 
@@ -73,6 +77,7 @@ func (m *Model) promptSearch() tea.Cmd {
 }
 
 func (m *Model) promptCommand(initial string) tea.Cmd {
+	m.paletteSel = 0
 	return m.prompt(":", initial, func(m *Model, s string) tea.Cmd { return m.runCommand(s) })
 }
 
@@ -261,34 +266,6 @@ func (m *Model) runCommand(s string) tea.Cmd {
 	}
 	m.setErr("ambiguous: " + strings.Join(names, ", "))
 	return nil
-}
-
-func (m *Model) completeCommand() {
-	v := m.line.Value()
-	if strings.Contains(v, " ") {
-		return
-	}
-	var names []string
-	for _, c := range commands {
-		if strings.HasPrefix(c.name, v) {
-			names = append(names, c.name)
-		}
-	}
-	if len(names) == 0 {
-		return
-	}
-	lcp := names[0]
-	for _, n := range names[1:] {
-		for !strings.HasPrefix(n, lcp) {
-			lcp = lcp[:len(lcp)-1]
-		}
-	}
-	if len(names) == 1 {
-		lcp += " "
-	}
-	m.line.SetValue(lcp)
-	m.line.CursorEnd()
-	m.setStatus(strings.Join(names, "  "))
 }
 
 func expandHome(p string) string {
