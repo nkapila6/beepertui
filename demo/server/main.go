@@ -5,12 +5,15 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -20,6 +23,8 @@ import (
 type obj = map[string]any
 
 var (
+	challenge string
+
 	mu       sync.Mutex
 	chats    []obj
 	messages = map[string][]obj{}
@@ -236,6 +241,23 @@ func main() {
 				}
 			}
 			j(w, obj{})
+		case p == "/oauth/register":
+			j(w, obj{"client_id": "demo-client"})
+		case p == "/oauth/authorize":
+			// auto-approve, remembering the PKCE challenge for the token step
+			q := r.URL.Query()
+			challenge = q.Get("code_challenge")
+			http.Redirect(w, r, q.Get("redirect_uri")+"?code=demo-code&state="+url.QueryEscape(q.Get("state")), http.StatusFound)
+		case p == "/oauth/token":
+			r.ParseForm()
+			sum := sha256.Sum256([]byte(r.Form.Get("code_verifier")))
+			if r.Form.Get("code") != "demo-code" || base64.RawURLEncoding.EncodeToString(sum[:]) != challenge {
+				http.Error(w, `{"error":"invalid_grant"}`, http.StatusBadRequest)
+				return
+			}
+			j(w, obj{"access_token": "demo-token", "token_type": "Bearer", "expires_in": 3600})
+		case p == "/v1/info":
+			j(w, obj{"app": obj{"name": "Beeper (demo)"}})
 		case p == "/v1/accounts":
 			j(w, []obj{{"accountID": "x", "network": "WhatsApp", "status": "connected", "user": me}})
 		case p == "/v1/assets/download":

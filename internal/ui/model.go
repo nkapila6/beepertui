@@ -564,7 +564,7 @@ func friendlyErr(err error) string {
 		return "can't reach Beeper Desktop. Is it running with the API enabled?"
 	}
 	if ae, ok := err.(*beeper.APIError); ok && ae.Status == 401 {
-		return "token rejected (401). Check BEEPER_ACCESS_TOKEN"
+		return "token rejected (401). Run beepertui login again"
 	}
 	return s
 }

@@ -35,15 +35,15 @@ macOS gets everything. Linux and Windows work too, minus `C-v` image paste (use 
 
 ## Setup
 
-1. In Beeper Desktop: Settings > Developers, turn on the Beeper Desktop API and create an access token.
-2. Run it:
+Turn on the API in Beeper Desktop (Settings > Developers > Beeper Desktop API), then:
 
 ```bash
-export BEEPER_ACCESS_TOKEN=...
-beepertui
+beepertui login
 ```
 
-`BEEPER_URL` overrides the API address if you've moved it.
+That opens Beeper's approval page in your browser. Click approve and the token is saved in the macOS Keychain (or `~/.config/beepertui/token` on Linux and Windows). After that, `beepertui` just starts, and it'll run the login itself the first time if you skip this. `beepertui logout` forgets and revokes the token, and `beepertui status` shows what it's using.
+
+`BEEPER_ACCESS_TOKEN` still works and wins over the saved token if you'd rather manage it yourself. `BEEPER_URL` overrides the API address.
 
 ## Keys
 
