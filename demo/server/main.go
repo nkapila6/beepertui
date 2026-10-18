@@ -10,10 +10,16 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"image"
+	"image/color"
+	"image/gif"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
+	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -22,16 +28,20 @@ import (
 
 type obj = map[string]any
 
+// Beeper turns markdown links (mentions included) into rich text; do the same
+var mdLinks = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
+
 var (
 	challenge string
+	partyGIF  string // a generated animated gif, so the demo shows playback
 
-	mu       sync.Mutex
-	chats    []obj
-	messages = map[string][]obj{}
-	seq      = 1000
-	image    = flag.String("image", "", "local image served for picture messages and avatars")
-	addr     = flag.String("addr", "127.0.0.1:23999", "listen address")
-	delay    = flag.Duration("send-delay", 0, "how long sent messages take to show up, like a slow network")
+	mu        sync.Mutex
+	chats     []obj
+	messages  = map[string][]obj{}
+	seq       = 1000
+	imagePath = flag.String("image", "", "local image served for picture messages and avatars")
+	addr      = flag.String("addr", "127.0.0.1:23999", "listen address")
+	delay     = flag.Duration("send-delay", 0, "how long sent messages take to show up, like a slow network")
 )
 
 func ts(ago time.Duration) string { return time.Now().Add(-ago).Format(time.RFC3339) }
@@ -82,34 +92,38 @@ func react(key, who string) obj {
 
 func seed() {
 	h, mn := time.Hour, time.Minute
-	img := "file://" + *image
+	img := "file://" + *imagePath
 	avatar := func(ok bool) obj {
-		if ok && *image != "" {
-			return obj{"imgURL": *image}
+		if ok && *imagePath != "" {
+			return obj{"imgURL": *imagePath}
 		}
 		return obj{}
 	}
 
-	priya, sam, lena, omar := person("priya", "Priya Shah"), person("sam", "Sam Okafor"), person("lena", "Lena Fischer"), person("omar", "Omar Haddad")
+	priya, sam, lena, omar := person("priya", "Gaurav Gosain"), person("sam", "CSK Thala"), person("lena", "Fazalullah"), person("omar", "Omar Haddad")
 	addChat("design", "Design Team", "Slack", "group", 3, []obj{priya, sam, lena}, obj{"isPinned": true, "lastReadMessageSortKey": "1006"})
-	msg("design", "priya", "Priya Shah", 26*h, "morning all, new onboarding mocks are in figma", nil)
-	msg("design", "sam", "Sam Okafor", 25*h, "looking now", nil)
+	msg("design", "priya", "Gaurav Gosain", 26*h, "morning all, new onboarding mocks are in figma", nil)
+	msg("design", "sam", "CSK Thala", 25*h, "looking now", nil)
 	msg("design", "", "", 3*h, "the empty states look <b>so</b> much better", obj{"seen": obj{"priya": ts(170 * mn), "sam": ts(160 * mn), "lena": ts(150 * mn)}})
-	msg("design", "lena", "Lena Fischer", 2*h+40*mn, `did anyone see the new <a href="https://github.com/nkapila6/beepertui">terminal client</a> for beeper?`, obj{
-		"links": []obj{{"url": "https://github.com/nkapila6/beepertui", "title": "nkapila6/beepertui", "summary": "A terminal client for Beeper Desktop with vim keys and flash.nvim-style labels."}},
+	msg("design", "lena", "Fazalullah", 2*h+40*mn, `recording the demos with <a href="https://github.com/charmbracelet/vhs">vhs</a> now`, obj{
+		"links": []obj{{"url": "https://github.com/charmbracelet/vhs", "title": "charmbracelet/vhs", "summary": "Your CLI home video recorder. Write terminal GIFs as code."}},
 	})
-	msg("design", "sam", "Sam Okafor", 2*h+30*mn, "flash labels for replying is such a good idea", obj{"reactions": []obj{react("\U0001F525", "priya"), react("\U0001F525", "lena")}})
+	msg("design", "sam", "CSK Thala", 2*h+30*mn, "looks clean, ship it", obj{"reactions": []obj{react("\U0001F525", "priya"), react("\U0001F525", "lena")}})
 	msg("design", "", "", 2*h, "been using it all morning tbh", obj{"seen": obj{"priya": ts(110 * mn), "sam": ts(95 * mn), "lena": false}})
-	msg("design", "priya", "Priya Shah", 40*mn, "ok here's the final hero for the landing page", obj{
+	msg("design", "priya", "Gaurav Gosain", 40*mn, "ok here's the final hero for the landing page", obj{
 		"type": "IMAGE", "attachments": []obj{{"id": "a1", "type": "img", "srcURL": img, "mimeType": "image/png", "fileName": "hero-final.png"}},
 	})
-	msg("design", "lena", "Lena Fischer", 30*mn, "love the gradient", obj{"linkedMessageID": "m1007"})
-	msg("design", "sam", "Sam Okafor", 12*mn, `<a href="https://matrix.to/#/@me">Nikhil</a> can you review before standup?`, nil)
+	msg("design", "lena", "Fazalullah", 30*mn, "love the gradient", obj{"linkedMessageID": "m1007"})
+	msg("design", "lena", "Fazalullah", 25*mn, "", obj{
+		"type": "IMAGE", "attachments": []obj{{"id": "a2", "type": "img", "srcURL": "mxc://demo/party", "mimeType": "image/gif", "fileName": "party.gif", "isGif": true}},
+		"reactions": []obj{react("\U0001F389", "sam"), react("\U0001F389", "priya"), react("\U0001F389", "me")},
+	})
+	msg("design", "sam", "CSK Thala", 12*mn, `<a href="https://matrix.to/#/@me">Nikhil</a> can you review before standup?`, nil)
 
 	addChat("hike", "Weekend Hike", "WhatsApp", "group", 5, []obj{omar, lena, priya}, avatar(true))
 	msg("hike", "omar", "Omar Haddad", 5*h, "trail opens at 7, who's in?", nil)
-	msg("hike", "lena", "Lena Fischer", 4*h, "me! bringing snacks", obj{"reactions": []obj{react("\U0001F44D", "omar")}})
-	msg("hike", "priya", "Priya Shah", 3*h, "count me in, I'll drive", nil)
+	msg("hike", "lena", "Fazalullah", 4*h, "me! bringing snacks", obj{"reactions": []obj{react("\U0001F44D", "omar")}})
+	msg("hike", "priya", "Gaurav Gosain", 3*h, "count me in, I'll drive", nil)
 	msg("hike", "omar", "Omar Haddad", 50*mn, "forecast says clear skies", nil)
 	msg("hike", "omar", "Omar Haddad", 48*mn, "meeting at the north parking lot", nil)
 
@@ -126,17 +140,17 @@ func seed() {
 
 	addChat("releases", "#releases", "Discord", "group", 2, []obj{person("bot", "release-bot"), sam}, obj{"isMuted": true})
 	msg("releases", "bot", "release-bot", 7*h, "v2.4.0 shipped to production", nil)
-	msg("releases", "sam", "Sam Okafor", 6*h, "changelog: https://example.com/changelog", nil)
+	msg("releases", "sam", "CSK Thala", 6*h, "changelog: https://example.com/changelog", nil)
 
-	addChat("priya", "Priya Shah", "Signal", "single", 0, []obj{priya}, avatar(true))
-	msg("priya", "priya", "Priya Shah", 9*h, "sending you the slides now", nil)
+	addChat("priya", "Gaurav Gosain", "Signal", "single", 0, []obj{priya}, avatar(true))
+	msg("priya", "priya", "Gaurav Gosain", 9*h, "sending you the slides now", nil)
 	msg("priya", "", "", 8*h, "got them, thanks!", nil)
 
 	addChat("book", "Book Club", "Messenger", "group", 0, []obj{lena, omar}, nil)
-	msg("book", "lena", "Lena Fischer", 26*h, "next pick: Project Hail Mary?", obj{"reactions": []obj{react("\U0001F680", "omar"), react("\U0001F680", "me")}})
+	msg("book", "lena", "Fazalullah", 26*h, "next pick: Project Hail Mary?", obj{"reactions": []obj{react("\U0001F680", "omar"), react("\U0001F680", "me")}})
 
 	addChat("climb", "Climbing Crew", "Telegram", "group", 0, []obj{omar, sam}, nil)
-	msg("climb", "sam", "Sam Okafor", 50*h, "bouldering thursday?", nil)
+	msg("climb", "sam", "CSK Thala", 50*h, "bouldering thursday?", nil)
 
 	addChat("recruiting", "Jordan Lee", "LinkedIn", "single", 0, []obj{person("jordan", "Jordan Lee")}, nil)
 	msg("recruiting", "jordan", "Jordan Lee", 72*h, "hey! saw your post about terminal tools", nil)
@@ -153,6 +167,7 @@ func seed() {
 
 func main() {
 	flag.Parse()
+	partyGIF = makePartyGIF()
 	seed()
 	j := func(w http.ResponseWriter, v any) {
 		w.Header().Set("Content-Type", "application/json")
@@ -210,7 +225,7 @@ func main() {
 				extra["linkedMessageID"] = body.ReplyTo
 			}
 			add := func() {
-				msg(parts[2], "", "", 0, body.Text, extra)
+				msg(parts[2], "", "", 0, mdLinks.ReplaceAllString(body.Text, `<a href="$2">$1</a>`), extra)
 				bump(parts[2])
 			}
 			if *delay > 0 {
@@ -314,14 +329,22 @@ func main() {
 			}
 			j(w, obj{"data": items})
 		case strings.HasPrefix(p, "/media/"):
-			http.ServeFile(w, r, *image)
+			http.ServeFile(w, r, *imagePath)
 		case p == "/v1/assets/upload":
 			io.Copy(io.Discard, r.Body)
 			j(w, obj{"uploadID": "up1", "fileName": "gif.gif", "mimeType": "image/gif"})
 		case p == "/v1/accounts":
 			j(w, []obj{{"accountID": "x", "network": "WhatsApp", "status": "connected", "user": me}})
 		case p == "/v1/assets/download":
-			j(w, obj{"srcURL": "file://" + *image})
+			var body struct {
+				URL string `json:"url"`
+			}
+			json.NewDecoder(r.Body).Decode(&body)
+			if strings.Contains(body.URL, "party") {
+				j(w, obj{"srcURL": "file://" + partyGIF})
+				return
+			}
+			j(w, obj{"srcURL": "file://" + *imagePath})
 		case p == "/v1/ws":
 			http.Error(w, "no websocket in the demo", http.StatusBadRequest)
 		default:
@@ -341,4 +364,43 @@ func bump(chat string) {
 			c["lastActivity"] = ms[len(ms)-1]["timestamp"]
 		}
 	}
+}
+
+// makePartyGIF draws a small looping animation (bouncing, colour-shifting dots)
+// and returns its path. It keeps the demo free of anyone else's media.
+func makePartyGIF() string {
+	const w, h, frames = 240, 140, 24
+	pal := color.Palette{color.RGBA{24, 23, 36, 255}}
+	for i := 0; i < 60; i++ {
+		t := float64(i) / 60
+		pal = append(pal, color.RGBA{uint8(120 + 135*math.Sin(t*6.28)), uint8(120 + 135*math.Sin(t*6.28+2.1)), uint8(120 + 135*math.Sin(t*6.28+4.2)), 255})
+	}
+	anim := &gif.GIF{}
+	for f := 0; f < frames; f++ {
+		img := image.NewPaletted(image.Rect(0, 0, w, h), pal)
+		ph := float64(f) / frames * 2 * math.Pi
+		for d := 0; d < 5; d++ {
+			cx := 30 + d*45
+			cy := 70 + int(40*math.Sin(ph+float64(d)*0.9))
+			ci := uint8(1 + (f*2+d*12)%60)
+			for y := -14; y <= 14; y++ {
+				for x := -14; x <= 14; x++ {
+					if x*x+y*y <= 196 {
+						img.SetColorIndex(cx+x, cy+y, ci)
+					}
+				}
+			}
+		}
+		anim.Image = append(anim.Image, img)
+		anim.Delay = append(anim.Delay, 6)
+	}
+	f, err := os.CreateTemp("", "demo-party-*.gif")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+	if err := gif.EncodeAll(f, anim); err != nil {
+		log.Fatal(err)
+	}
+	return f.Name()
 }

@@ -19,7 +19,9 @@ Tab
 Sleep 400ms
 Type "still on for 7?"
 Ctrl+J
-Type "I'll bring coffee"
+Type "I'll bring coffee :coff"
+Sleep 1.2s
+Tab
 Sleep 1.2s
 Enter
 Sleep 1.4s
@@ -28,18 +30,18 @@ Sleep 500ms
 # link hints: f, pick a label, then o opens or y yanks
 Type "K"
 Sleep 1.5s
+Up@300ms 5
+Sleep 600ms
 Type "f"
 Sleep 1.6s
 Type "a"
 Sleep 1.4s
 Type "y"
 Sleep 1.2s
-# image viewer
-Type "k"
-Sleep 300ms
-Type "k"
+# image viewer, and gifs play
+Down@300ms 4
 Sleep 400ms
 Enter
-Sleep 3s
+Sleep 4s
 Escape
 Sleep 1s

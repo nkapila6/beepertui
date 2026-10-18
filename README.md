@@ -11,9 +11,13 @@ Beeper Desktop does the real work (bridges, encryption). This is just a frontend
 | | |
 | --- | --- |
 | ![browsing chats](assets/demo/tour.gif) | ![flash labels: reply, react, yank](assets/demo/flash.gif) |
-| Browsing: avatars, sender colours, day and "new" dividers, link cards | Flash labels: `r` reply, `R` react by emoji name, `yy` yank, `s` jump |
+| Browsing: avatars, sender colours, GIFs that play, who reacted, who saw it | Flash labels: `r` reply, `R` react by emoji name, `yy` yank, `s` jump |
+| ![media picker](assets/demo/media.gif) | ![more sources](assets/demo/more.gif) |
+| Media picker: one search across every source, memes captioned live, reaction GIFs | Stickers, cats, xkcd, status codes and Reddit, no keys needed |
 | ![switching chats](assets/demo/switch.gif) | ![writing and links](assets/demo/compose.gif) |
-| Switching: `cc` fuzzy chat list, `J`/`K`, `c` labels, `C` chat menu | Writing: `@` mentions, multi-line, `f` link hints, image viewer |
+| Switching: `cc` fuzzy chat list, `J`/`K`, `c` labels, `C` chat menu | Writing: `@` mentions, multi-line, `:emoji`, `f` link hints, image viewer |
+| ![search and commands](assets/demo/search.gif) | |
+| `/` searches inside a chat and jumps to the match, `:` lists every command | |
 
 The clips are recorded with [VHS](https://github.com/charmbracelet/vhs), which can't draw kitty graphics, so images show as blocks there. In Ghostty and kitty they look like the screenshot. Everyone in them is made up: `demo/record.sh` replays the clips against a fake API in `demo/server`.
 

@@ -21,7 +21,7 @@ if [ -z "$image" ] && command -v sips >/dev/null; then
   [ -n "$pic" ] && sips -s format png -Z 900 "$pic" --out "$work/image.png" >/dev/null && image="$work/image.png"
 fi
 
-for tape in "${@:-tour flash switch compose}"; do
+for tape in "${@:-tour flash switch compose media more search}"; do
   for t in $tape; do
     # fresh fake data for every clip
     "$work/server" -image "$image" >/dev/null 2>&1 &
