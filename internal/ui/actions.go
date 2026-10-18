@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -143,9 +142,7 @@ func (m *Model) yank(msg beeper.Message) tea.Cmd {
 		m.setErr("nothing to yank")
 		return nil
 	}
-	cmd := exec.Command("pbcopy")
-	cmd.Stdin = strings.NewReader(text)
-	if err := cmd.Run(); err != nil {
+	if err := copyText(text); err != nil {
 		// OSC52 fallback for terminals over ssh etc
 		m.setStatus(fmt.Sprintf("yanked %d chars (osc52)", len([]rune(text))))
 		return tea.SetClipboard(text)
@@ -389,9 +386,9 @@ func (m *Model) openTarget(t openTarget) tea.Cmd {
 		}
 		// someone else's file could be an .app or script, so only hand media/docs to their default app
 		if strings.HasPrefix(u, "file://") && !safeMime(t.mime) {
-			return nil, exec.Command("open", "-R", u).Run()
+			return nil, reveal(u)
 		}
-		return nil, exec.Command("open", u).Run()
+		return nil, openURL(u)
 	})
 }
 

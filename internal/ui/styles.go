@@ -2,16 +2,19 @@ package ui
 
 import "charm.land/lipgloss/v2"
 
+// Every colour is one of the terminal's 16 ANSI slots or its default
+// foreground, never a hex value. Whatever theme the terminal (or a tuios look)
+// sets, the app follows it, light themes included.
 var (
-	colAccent = lipgloss.Color("#89b4fa")
-	colMuted  = lipgloss.Color("#6c7086")
-	colText   = lipgloss.Color("#cdd6f4")
-	colSelf   = lipgloss.Color("#a6e3a1")
-	colOther  = lipgloss.Color("#f9e2af")
-	colErr    = lipgloss.Color("#f38ba8")
-	colLabel  = lipgloss.Color("#ff007c")
-	colLabelF = lipgloss.Color("#1e1e2e")
-	colSel    = lipgloss.Color("#313244")
+	colAccent = lipgloss.Blue
+	colMuted  = lipgloss.BrightBlack
+	colText   = lipgloss.NoColor{}
+	colSelf   = lipgloss.Green
+	colOther  = lipgloss.Yellow
+	colErr    = lipgloss.Red
+	colLabel  = lipgloss.Magenta
+	colLabelF = lipgloss.Black
+	colSel    = lipgloss.BrightBlack
 
 	stPane      = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colMuted)
 	stPaneFocus = stPane.BorderForeground(colAccent)

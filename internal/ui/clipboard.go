@@ -15,6 +15,9 @@ import (
 // pasteboard. A copied Finder file is used as is; raw image data (screenshots,
 // "copy image" in a browser) is written out to a temp PNG.
 func clipboardFile(ctx context.Context) (path string, temp bool, err error) {
+	if err := pasteSupported(ctx); err != nil {
+		return "", false, err
+	}
 	out, err := exec.CommandContext(ctx, "osascript", "-e", `POSIX path of (the clipboard as «class furl»)`).Output()
 	if err == nil {
 		if p := strings.TrimSpace(string(out)); isFile(p) {

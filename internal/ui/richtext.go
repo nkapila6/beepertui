@@ -155,7 +155,7 @@ func renderRich(s string) string {
 			st = st.Strikethrough(true)
 		}
 		if sp.code {
-			st = st.Foreground(colOther).Background(colSel)
+			st = st.Foreground(colOther)
 		}
 		if sp.quote {
 			st = st.Foreground(colMuted)

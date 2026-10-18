@@ -10,7 +10,24 @@ import (
 	"github.com/nkapila6/beepertui/internal/ui"
 )
 
+// set by goreleaser at build time
+var version = "dev"
+
 func main() {
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "-v", "--version", "version":
+			fmt.Println("beepertui", version)
+			return
+		case "-h", "--help", "help":
+			fmt.Println("beepertui: a terminal client for Beeper Desktop")
+			fmt.Println()
+			fmt.Println("needs BEEPER_ACCESS_TOKEN (Beeper Desktop > Settings > Developers)")
+			fmt.Println("optional BEEPER_URL (default http://localhost:23373), BEEPERTUI_IMAGES=kitty|blocks|off")
+			fmt.Println("press ? inside for keys")
+			return
+		}
+	}
 	token := os.Getenv("BEEPER_ACCESS_TOKEN")
 	if token == "" {
 		fmt.Fprintln(os.Stderr, "BEEPER_ACCESS_TOKEN is not set.")

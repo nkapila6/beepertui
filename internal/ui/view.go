@@ -178,6 +178,10 @@ func (m *Model) renderChats() string {
 		// style doesn't work because each piece resets it
 		paint := func(st lipgloss.Style, s string) string {
 			if sel {
+				// dim text is the same slot as the selection, so lift it to the default ink
+				if st.GetForeground() == colMuted {
+					st = st.Foreground(colText)
+				}
 				st = st.Background(colSel)
 			}
 			return st.Render(s)

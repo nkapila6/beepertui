@@ -200,6 +200,6 @@ func (m *Model) paneHints() []string {
 	case m.focus == paneMsgs:
 		return []string{"y yank  r reply  R react", "e edit  x del  o open", "c chats  C chat menu  ?"}
 	default:
-		return []string{"enter open  s/c jump", "C chat menu  p pin  m mute", "/ search  ? all keys"}
+		return []string{"enter open  s/c jump", "C menu  p pin  m mute", "/ search  ? all keys"}
 	}
 }
