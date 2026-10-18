@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"hash/fnv"
 	"image/color"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -141,11 +140,6 @@ func spinTick() tea.Cmd {
 }
 
 // nerd font glyphs, opt in
-
-func nerdFontDefault() bool {
-	v := strings.ToLower(os.Getenv("BEEPERTUI_NERDFONT"))
-	return v == "1" || v == "true" || v == "on"
-}
 
 var nerdIcons = map[string]string{
 	"sending": "\U000F0150", // md-clock_outline

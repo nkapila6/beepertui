@@ -92,7 +92,7 @@ Images and video posters show inline. In Ghostty and kitty they're real images, 
 
 ## GIFs
 
-`C-g` while writing (or `:gif cats`) searches GIFs as you type, shows trending ones when the search box is empty, previews the highlighted one and sends it with `enter`. It uses [KLIPY](https://klipy.com), since Tenor's API shut down in 2026. Grab a free key from their partner panel and set `BEEPERTUI_KLIPY_KEY`. Test keys get 100 searches an hour, and production access is free too.
+`C-g` while writing (or `:gif cats`) searches GIFs as you type, shows trending ones when the search box is empty, previews the highlighted one and sends it with `enter`. Tenor's API shut down in 2026, so it uses [KLIPY](https://partner.klipy.com) or [GIPHY](https://developers.giphy.com). Both are free with a key: set `BEEPERTUI_KLIPY_KEY` or `BEEPERTUI_GIPHY_KEY`. With both set, `gif_provider` picks one. Test keys on either get about 100 searches an hour.
 
 ## Forwarding
 
@@ -108,6 +108,20 @@ Images and video posters show inline. In Ghostty and kitty they're real images, 
 - Text that matches no emoji, or anything sent with `alt+enter`, goes out as a text reaction. Other Beeper clients display it as is.
 
 Commands worth knowing: `:search <words>` searches every message across every network, `:attach ~/file.pdf` stages a file for the next message, `:remind 2h`, `:expiry 24h` for disappearing messages, `:label`, `:accounts`, `:info`.
+
+## Config
+
+Settings live in `~/.config/beepertui/config.toml`. Edit it by hand, or:
+
+```bash
+beepertui config                      # everything, with where each value comes from
+beepertui config set accent magenta
+beepertui config set image_size large
+beepertui config unset accent
+beepertui config edit                 # opens $EDITOR
+```
+
+Inside the app, `:set` lists the settings and `:set compact true` changes one live and saves it. You can set `nerd_font`, `images`, `image_size`, `avatars`, `compact`, `mouse`, `notifications`, `chat_width`, `inbox`, `accent`, `gif_provider` and `beeper_url`. Env vars like `BEEPERTUI_NERDFONT` still win over the file. Font and font size belong to your terminal, not the app, so set those in kitty/Ghostty/etc.
 
 ## Looks
 

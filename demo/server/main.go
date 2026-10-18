@@ -267,6 +267,14 @@ func main() {
 				items = append(items, obj{"slug": fmt.Sprintf("demo-%d", i), "title": t, "file": obj{"md": f, "sm": f}})
 			}
 			j(w, obj{"result": true, "data": obj{"data": items}})
+		case strings.HasPrefix(p, "/giphy/"):
+			media := "http://" + *addr + "/media/demo"
+			var items []obj
+			for i, t := range []string{"cat typing", "excited dog", "slow clap"} {
+				r := obj{"url": media + ".gif", "width": "400", "height": "400"}
+				items = append(items, obj{"slug": fmt.Sprintf("giphy-%d", i), "title": t, "images": obj{"downsized": r, "fixed_height": r, "fixed_height_still": obj{"url": media + ".jpg"}}})
+			}
+			j(w, obj{"data": items})
 		case strings.HasPrefix(p, "/media/"):
 			http.ServeFile(w, r, *image)
 		case p == "/v1/assets/upload":

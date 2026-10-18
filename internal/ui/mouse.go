@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"os"
-
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
@@ -10,8 +8,6 @@ import (
 // Mouse support works by mapping screen coordinates back onto the layout in
 // view.go: header on row 0, panes with a border from row 1, the message pane
 // title on row 2, compose box under the panes.
-
-func mouseDefault() bool { return os.Getenv("BEEPERTUI_MOUSE") != "off" }
 
 func (m *Model) composeTop() int { return 1 + m.bodyHeight() + 2 }
 

@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/nkapila6/beepertui/internal/beeper"
+	"github.com/nkapila6/beepertui/internal/config"
 )
 
 type pane int
@@ -112,6 +113,10 @@ type Model struct {
 
 	resizeSeq int
 
+	cfg           *config.Config
+	chatPct       int
+	notifications bool
+
 	hints linkHints
 	menu  *ctxMenu
 	gif   *gifPicker
@@ -134,7 +139,7 @@ type Model struct {
 	isErr    bool
 }
 
-func New(c *beeper.Client) *Model {
+func New(c *beeper.Client, cfg *config.Config) *Model {
 	ci := newCompose()
 
 	li := textinput.New()
@@ -150,14 +155,14 @@ func New(c *beeper.Client) *Model {
 		selfIDs:    map[string]bool{},
 		thumbs:     map[string]*thumb{},
 		showImages: true,
-		imageMode:  detectImageMode(),
 		cellAspect: cellAspect(),
-		mouse:      mouseDefault(),
 
 		mentionDismissed: -1,
-		nerdFont:         nerdFontDefault(),
 		avatars:          map[string]*avatar{},
-		showAvatars:      true,
+		cfg:              cfg,
+	}
+	for _, st := range config.Settings {
+		m.applySetting(st.Key)
 	}
 	go c.Stream(ctx, m.events)
 	return m

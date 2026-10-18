@@ -30,7 +30,7 @@ func (m *Model) composeHeight() int {
 // bodyHeight is the inner height of the two panes.
 func (m *Model) bodyHeight() int { return max(2, m.h-2-m.composeHeight()-2) }
 
-func (m *Model) chatWidth() int { return clamp(m.w*32/100, 24, 44) }
+func (m *Model) chatWidth() int { return clamp(m.w*m.chatPct/100, 24, max(44, m.w*m.chatPct/100)) }
 func (m *Model) msgWidth() int  { return max(20, m.w-m.chatWidth()) }
 
 // chat list scrolling, two rows per chat

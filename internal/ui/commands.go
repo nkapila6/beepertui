@@ -216,25 +216,11 @@ func init() {
 			m.setStatus("images off")
 			return nil
 		}},
-		{"mouse", "[on|off]", "toggle mouse (off lets the terminal select text)", func(m *Model, arg string) tea.Cmd {
-			m.mouse = arg == "on" || (arg == "" && !m.mouse)
-			m.setStatus(map[bool]string{true: "mouse on", false: "mouse off, terminal selection works again"}[m.mouse])
-			return nil
-		}},
-		{"icons", "[on|off]", "nerd font icons (or BEEPERTUI_NERDFONT=1)", func(m *Model, arg string) tea.Cmd {
-			m.nerdFont = arg == "on" || (arg == "" && !m.nerdFont)
-			m.setStatus(map[bool]string{true: "nerd font icons on", false: "nerd font icons off"}[m.nerdFont])
-			return nil
-		}},
-		{"avatars", "[on|off]", "chat avatars in the list", func(m *Model, arg string) tea.Cmd {
-			m.showAvatars = arg == "on" || (arg == "" && !m.showAvatars)
-			return m.loadAvatars()
-		}},
-		{"compact", "[on|off]", "drop the blank line between senders", func(m *Model, arg string) tea.Cmd {
-			m.compact = arg == "on" || (arg == "" && !m.compact)
-			m.fixMsgScroll()
-			return nil
-		}},
+		{"mouse", "[on|off]", "toggle mouse (saved to config)", func(m *Model, arg string) tea.Cmd { return m.toggleSetting("mouse", arg) }},
+		{"icons", "[on|off]", "toggle nerd_font (saved to config)", func(m *Model, arg string) tea.Cmd { return m.toggleSetting("nerd_font", arg) }},
+		{"avatars", "[on|off]", "toggle avatars (saved to config)", func(m *Model, arg string) tea.Cmd { return m.toggleSetting("avatars", arg) }},
+		{"compact", "[on|off]", "toggle compact (saved to config)", func(m *Model, arg string) tea.Cmd { return m.toggleSetting("compact", arg) }},
+		{"set", "[key value]", "change a setting and save it (no args: list them)", func(m *Model, arg string) tea.Cmd { return m.setSetting(arg) }},
 		{"older", "", "load older messages", func(m *Model, _ string) tea.Cmd { return m.loadOlder() }},
 		{"refresh", "", "refetch everything", func(m *Model, _ string) tea.Cmd { return tea.Batch(m.loadChats(), m.reloadOpenChat()) }},
 		{"help", "", "show keys", func(m *Model, _ string) tea.Cmd { m.mode, m.helpOff = modeHelp, 0; return nil }},

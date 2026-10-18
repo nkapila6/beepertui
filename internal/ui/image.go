@@ -42,14 +42,29 @@ const (
 )
 
 const (
-	kittyMaxCols  = 60
-	kittyMaxRows  = 20
-	blockMaxCols  = 48
-	blockMaxRows  = 12
 	placeholder   = '\U0010EEEE'
 	kittyFirstID  = 0x0BEE00 // ids double as 24-bit colours, keep them away from 0
 	kittyMaxPixel = "800"
 )
+
+// inline image limits in cells, set from the image_size setting
+var (
+	kittyMaxCols = 60
+	kittyMaxRows = 20
+	blockMaxCols = 48
+	blockMaxRows = 12
+)
+
+func setImageSize(size string) {
+	switch size {
+	case "small":
+		kittyMaxCols, kittyMaxRows, blockMaxCols, blockMaxRows = 40, 13, 36, 9
+	case "large":
+		kittyMaxCols, kittyMaxRows, blockMaxCols, blockMaxRows = 80, 28, 64, 16
+	default:
+		kittyMaxCols, kittyMaxRows, blockMaxCols, blockMaxRows = 60, 20, 48, 12
+	}
+}
 
 // first 80 entries of kitty's rowcolumn-diacritics.txt, which is plenty for our sizes
 var diacritics = []rune{
@@ -65,8 +80,8 @@ var diacritics = []rune{
 
 // detectImageMode picks kitty graphics only where Unicode placeholders are known
 // to work. tmux would need passthrough, so it gets blocks.
-func detectImageMode() imageMode {
-	switch os.Getenv("BEEPERTUI_IMAGES") {
+func detectImageMode(setting string) imageMode {
+	switch setting {
 	case "off":
 		return imagesOff
 	case "blocks":

@@ -22,6 +22,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/nkapila6/beepertui/internal/config"
 )
 
 const service = "beepertui"
@@ -192,11 +194,7 @@ func openBrowser(u string) {
 // storage: Keychain on macOS, a 0600 file in the user config dir elsewhere
 
 func tokenFile() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "beepertui", "token"), nil
+	return filepath.Join(config.Dir(), "token"), nil
 }
 
 // Save stores the token.

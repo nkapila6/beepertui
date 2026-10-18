@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/nkapila6/beepertui/internal/auth"
 	"github.com/nkapila6/beepertui/internal/beeper"
+	"github.com/nkapila6/beepertui/internal/config"
 	"github.com/nkapila6/beepertui/internal/ui"
 )
 
@@ -24,26 +28,35 @@ usage:
   beepertui login     approve beepertui in Beeper Desktop and save the token
   beepertui logout    forget and revoke the saved token
   beepertui status    show where the token comes from and if Beeper is reachable
+  beepertui config    show settings (config get|set|unset|edit|path)
   beepertui version
 
-env:
+settings live in ~/.config/beepertui/config.toml (beepertui config).
+env vars override them:
   BEEPER_ACCESS_TOKEN  use this token instead of the saved one
   BEEPER_URL           API address (default http://localhost:23373)
   BEEPERTUI_IMAGES     kitty | blocks | off
   BEEPERTUI_NERDFONT   1 for nerd font icons
   BEEPERTUI_MOUSE      off to disable mouse capture
+  BEEPERTUI_KLIPY_KEY  KLIPY key for GIF search
+  BEEPERTUI_GIPHY_KEY  GIPHY key for GIF search
 
 press ? inside for keys`
 
 func main() {
-	base := os.Getenv("BEEPER_URL")
-	if base == "" {
-		base = beeper.DefaultBaseURL
-	}
 	cmd := ""
 	if len(os.Args) > 1 {
 		cmd = os.Args[1]
 	}
+	cfg, err := config.Load()
+	if err != nil {
+		// a broken file shouldn't lock you out of fixing it
+		if cmd != "config" {
+			fail(fmt.Errorf("%w (fix it with beepertui config edit)", err))
+		}
+		fmt.Fprintln(os.Stderr, "warning:", err)
+	}
+	base := cfg.String("beeper_url")
 	switch cmd {
 	case "-v", "--version", "version":
 		fmt.Println("beepertui", version)
@@ -70,6 +83,9 @@ func main() {
 	case "status":
 		status(base)
 		return
+	case "config":
+		configCmd(cfg, os.Args[2:])
+		return
 	case "":
 	default:
 		fail(fmt.Errorf("unknown command %q, try beepertui help", cmd))
@@ -88,7 +104,7 @@ func main() {
 		token = t
 	}
 
-	m := ui.New(beeper.NewClient(base, token))
+	m := ui.New(beeper.NewClient(base, token), cfg)
 	defer m.Close()
 	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fail(err)
@@ -140,4 +156,95 @@ func status(base string) {
 func fail(err error) {
 	fmt.Fprintln(os.Stderr, "beepertui:", err)
 	os.Exit(1)
+}
+
+func configCmd(cfg *config.Config, args []string) {
+	sub := ""
+	if len(args) > 0 {
+		sub = args[0]
+	}
+	switch sub {
+	case "", "list", "show":
+		fmt.Printf("# %s\n", config.Path())
+		for _, s := range config.Settings {
+			v, src := cfg.Value(s.Key)
+			fmt.Printf("%-14s %-24s %-24s %s\n", s.Key, v, "("+src+")", s.Help)
+		}
+	case "get":
+		if len(args) != 2 {
+			fail(fmt.Errorf("usage: beepertui config get <key>"))
+		}
+		if err := config.Validate(args[1], cfgDefault(args[1])); err != nil && strings.HasPrefix(err.Error(), "unknown") {
+			fail(err)
+		}
+		v, _ := cfg.Value(args[1])
+		fmt.Println(v)
+	case "set":
+		if len(args) < 3 {
+			fail(fmt.Errorf("usage: beepertui config set <key> <value>"))
+		}
+		val := strings.Join(args[2:], " ")
+		if err := cfg.Set(args[1], val); err != nil {
+			fail(err)
+		}
+		if err := cfg.Save(); err != nil {
+			fail(err)
+		}
+		fmt.Printf("%s = %s\n", args[1], val)
+		if _, src := cfg.Value(args[1]); strings.HasPrefix(src, "env") {
+			fmt.Printf("note: %s is set and overrides this\n", strings.TrimPrefix(src, "env "))
+		}
+	case "unset", "reset":
+		if len(args) != 2 {
+			fail(fmt.Errorf("usage: beepertui config unset <key>"))
+		}
+		if err := cfg.Unset(args[1]); err != nil {
+			fail(err)
+		}
+		if err := cfg.Save(); err != nil {
+			fail(err)
+		}
+		v, _ := cfg.Value(args[1])
+		fmt.Printf("%s back to %s\n", args[1], v)
+	case "path":
+		fmt.Println(config.Path())
+	case "edit":
+		if _, err := os.Stat(config.Path()); os.IsNotExist(err) {
+			if err := cfg.Save(); err != nil {
+				fail(err)
+			}
+		}
+		editor := os.Getenv("VISUAL")
+		if editor == "" {
+			editor = os.Getenv("EDITOR")
+		}
+		var c *exec.Cmd
+		switch {
+		case editor == "" && runtime.GOOS == "windows":
+			c = exec.Command("notepad", config.Path())
+		case editor == "":
+			c = exec.Command("vi", config.Path())
+		default:
+			// through the shell so EDITOR="code --wait" style values work
+			c = exec.Command("sh", "-c", editor+` "$1"`, "sh", config.Path())
+		}
+		c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
+		if err := c.Run(); err != nil {
+			fail(err)
+		}
+		if _, err := config.Load(); err != nil {
+			fail(fmt.Errorf("saved, but it doesn't parse: %w", err))
+		}
+	default:
+		fail(fmt.Errorf("unknown config command %q: use get, set, unset, edit or path", sub))
+	}
+}
+
+func cfgDefault(key string) string {
+	for _, s := range config.Settings {
+		if s.Key == key {
+			return s.Default
+		}
+	}
+	return ""
 }

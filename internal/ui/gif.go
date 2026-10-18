@@ -22,10 +22,10 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// GIF search through KLIPY (Tenor's API shut down in 2026). Needs a free key
-// from partner.klipy.com in BEEPERTUI_KLIPY_KEY. Per KLIPY's rules the
-// requests come straight from this client, media loads from their URLs, and
-// the picker says "Powered by KLIPY".
+// GIF search through KLIPY or GIPHY (Tenor's API shut down in 2026). Both
+// need a free key, BEEPERTUI_KLIPY_KEY or BEEPERTUI_GIPHY_KEY. As both
+// providers require, requests come straight from this client, media loads from
+// their URLs, and the picker credits whoever served the results.
 
 // BEEPERTUI_KLIPY_URL points at a stand-in API, for demo/server
 var klipyBase = firstNonEmpty(os.Getenv("BEEPERTUI_KLIPY_URL"), "https://api.klipy.com/api/v1/")
@@ -38,18 +38,43 @@ type gifResult struct {
 }
 
 type gifPicker struct {
-	query   string
-	results []gifResult
-	cur     int
-	loading bool
-	err     error
-	seq     int // ignores responses to stale queries
-	preview map[string]*thumb
+	query    string
+	results  []gifResult
+	cur      int
+	loading  bool
+	err      error
+	seq      int // ignores responses to stale queries
+	preview  map[string]*thumb
+	provider string
 }
 
 type gifSearchMsg struct{ seq int }
 
 func klipyKey() string { return strings.TrimSpace(os.Getenv("BEEPERTUI_KLIPY_KEY")) }
+func giphyKey() string { return strings.TrimSpace(os.Getenv("BEEPERTUI_GIPHY_KEY")) }
+
+// gifProvider picks klipy or giphy from the setting and whichever key is set.
+func (m *Model) gifProvider() string {
+	want := m.cfg.String("gif_provider")
+	switch {
+	case want == "klipy" && klipyKey() != "":
+		return "klipy"
+	case want == "giphy" && giphyKey() != "":
+		return "giphy"
+	case want == "auto" && klipyKey() != "":
+		return "klipy"
+	case want == "auto" && giphyKey() != "":
+		return "giphy"
+	}
+	return ""
+}
+
+func providerName(p string) string {
+	if p == "giphy" {
+		return "GIPHY"
+	}
+	return "KLIPY"
+}
 
 // customerID is a stable, anonymous id per user and machine, which KLIPY uses for "recent".
 func customerID() string {
@@ -69,11 +94,11 @@ func (m *Model) openGifPicker(query string) tea.Cmd {
 		m.setErr("open a chat first")
 		return nil
 	}
-	if klipyKey() == "" {
-		m.setErr("GIF search needs a free KLIPY key: get one at partner.klipy.com, then set BEEPERTUI_KLIPY_KEY")
+	if m.gifProvider() == "" {
+		m.setErr("GIF search needs a free key: BEEPERTUI_KLIPY_KEY (partner.klipy.com) or BEEPERTUI_GIPHY_KEY (developers.giphy.com)")
 		return nil
 	}
-	m.gif = &gifPicker{query: query, preview: map[string]*thumb{}}
+	m.gif = &gifPicker{query: query, preview: map[string]*thumb{}, provider: m.gifProvider()}
 	m.mode = modeGif
 	m.line.Prompt = "gif> "
 	m.line.SetValue(query)
@@ -84,10 +109,14 @@ func (m *Model) openGifPicker(query string) tea.Cmd {
 func (m *Model) searchGifs() tea.Cmd {
 	g := m.gif
 	g.seq++
-	seq, q := g.seq, strings.TrimSpace(m.line.Value())
+	seq, q, provider := g.seq, strings.TrimSpace(m.line.Value()), g.provider
 	g.loading = true
 	return m.run("", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
-		res, err := klipySearch(ctx, q)
+		search := klipySearch
+		if provider == "giphy" {
+			search = giphySearch
+		}
+		res, err := search(ctx, q)
 		return func(m *Model) tea.Cmd {
 			if m.gif == nil || m.gif.seq != seq {
 				return nil
@@ -160,6 +189,62 @@ func klipySearch(ctx context.Context, q string) ([]gifResult, error) {
 			r.previewURL = still.URL
 		}
 		res = append(res, r)
+	}
+	return res, nil
+}
+
+func giphySearch(ctx context.Context, q string) ([]gifResult, error) {
+	v := url.Values{"api_key": {giphyKey()}, "limit": {"24"}, "rating": {"pg-13"}, "bundle": {"messaging_non_clips"}}
+	endpoint := "trending"
+	if q != "" {
+		endpoint = "search"
+		v.Set("q", q)
+	}
+	base := firstNonEmpty(os.Getenv("BEEPERTUI_GIPHY_URL"), "https://api.giphy.com/v1/gifs/")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+endpoint+"?"+v.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("giphy: %s", resp.Status)
+	}
+	type rendition struct {
+		URL    string `json:"url"`
+		Width  string `json:"width"`
+		Height string `json:"height"`
+	}
+	var out struct {
+		Data []struct {
+			Slug   string `json:"slug"`
+			Title  string `json:"title"`
+			Images struct {
+				FixedHeight      rendition `json:"fixed_height"`
+				Downsized        rendition `json:"downsized"`
+				FixedHeightStill rendition `json:"fixed_height_still"`
+			} `json:"images"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	var res []gifResult
+	for _, d := range out.Data {
+		send := d.Images.Downsized
+		if send.URL == "" {
+			send = d.Images.FixedHeight
+		}
+		if send.URL == "" {
+			continue
+		}
+		var w, h int
+		fmt.Sscan(send.Width, &w)
+		fmt.Sscan(send.Height, &h)
+		res = append(res, gifResult{slug: d.Slug, title: firstNonEmpty(d.Title, d.Slug), sendURL: send.URL, previewURL: d.Images.FixedHeightStill.URL, width: w, height: h})
 	}
 	return res, nil
 }
@@ -297,6 +382,7 @@ func (m *Model) sendGif(r gifResult) tea.Cmd {
 	if m.cur == nil {
 		return nil
 	}
+	provider := m.gifProvider()
 	chatID := m.cur.ID
 	replyTo := ""
 	if m.replyTo != nil {
@@ -319,6 +405,9 @@ func (m *Model) sendGif(r gifResult) tea.Cmd {
 		}
 		if _, err := m.c.SendAttachment(ctx, chatID, up, "", replyTo); err != nil {
 			return nil, err
+		}
+		if provider != "klipy" {
+			return reloadAfter, nil
 		}
 		// tell KLIPY it was shared, as their API asks; best effort
 		share := klipyBase + url.PathEscape(klipyKey()) + "/gifs/share/" + url.PathEscape(r.slug) + "?customer_id=" + customerID()
@@ -406,7 +495,7 @@ func (m *Model) renderGif() string {
 		}
 	}
 
-	title := stBold.Render("GIFs") + stDim.Render("   type to search, enter sends, esc cancels   ") + stDim.Italic(true).Render("Powered by KLIPY")
+	title := stBold.Render("GIFs") + stDim.Render("   type to search, enter sends, esc cancels   ") + stDim.Italic(true).Render("Powered by "+providerName(g.provider))
 	left := lipgloss.NewStyle().Width(listW).Height(h - 3).Render(strings.Join(list, "\n"))
 	right := lipgloss.Place(prevW, h-3, lipgloss.Center, lipgloss.Center, strings.Join(prev, "\n"))
 	box := stOverlay.Width(m.w - 4).Render(title + "\n\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, "  ", right))

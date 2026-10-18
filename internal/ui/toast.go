@@ -27,7 +27,7 @@ func (m *Model) notify(text string) tea.Cmd {
 	m.toast = &toast{text: text, seq: m.toastSeq}
 	seq := m.toastSeq
 	cmds := []tea.Cmd{tea.Tick(toastFor, func(time.Time) tea.Msg { return toastDoneMsg{seq} })}
-	if seqStr := desktopNotification("beepertui", text); seqStr != "" {
+	if seqStr := desktopNotification("beepertui", text); seqStr != "" && m.notifications {
 		cmds = append(cmds, tea.Raw(seqStr))
 	}
 	return tea.Batch(cmds...)
