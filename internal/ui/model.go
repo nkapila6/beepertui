@@ -500,7 +500,10 @@ func (m *Model) reloadOpenChat() tea.Cmd {
 			if m.cur == nil || m.cur.ID != id {
 				return nil
 			}
-			atBottom := len(m.msgs) == 0 || m.msgCur >= len(m.msgs)-1
+			// follow new messages when you're at the end: cursor on the last
+			// one, the last one on screen, or writing
+			n := len(m.msgs)
+			atBottom := n == 0 || m.msgCur >= n-1 || m.msgBottom >= n-1 || m.mode == modeInsert
 			var selID string
 			if m.msgCur < len(m.msgs) {
 				selID = m.msgs[m.msgCur].ID
