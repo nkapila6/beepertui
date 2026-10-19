@@ -173,6 +173,41 @@ func (m *Model) edit(msg beeper.Message) tea.Cmd {
 	return m.startInsert()
 }
 
+// cmdEdit is :edit. It picks the cursor message when it's yours, otherwise
+// your most recent text message in the open chat.
+func (m *Model) cmdEdit(text string) tea.Cmd {
+	if m.cur == nil {
+		m.setErr("open a chat first")
+		return nil
+	}
+	editable := func(msg beeper.Message) bool { return msg.IsSender && !msg.IsDeleted && msg.Text != "" }
+	idx := -1
+	if m.focus == paneMsgs && m.msgCur < len(m.msgs) && editable(m.msgs[m.msgCur]) {
+		idx = m.msgCur
+	} else {
+		for i := len(m.msgs) - 1; i >= 0; i-- {
+			if editable(m.msgs[i]) {
+				idx = i
+				break
+			}
+		}
+	}
+	if idx < 0 {
+		m.setErr("nothing of yours to edit here")
+		return nil
+	}
+	msg := m.msgs[idx]
+	m.msgCur, m.focus = idx, paneMsgs
+	m.fixMsgScroll()
+	if text = strings.TrimSpace(text); text == "" {
+		return m.edit(msg)
+	}
+	chatID, id := msg.ChatID, msg.ID
+	return m.run("edited", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
+		return reloadAfter, m.c.EditMessage(ctx, chatID, id, text)
+	})
+}
+
 func (m *Model) del(msg beeper.Message) tea.Cmd {
 	if !msg.IsSender {
 		m.setErr("you can only delete your own messages")

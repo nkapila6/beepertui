@@ -256,6 +256,17 @@ func main() {
 				add()
 			}
 			j(w, obj{"chatID": parts[2], "pendingMessageID": "p"})
+		case len(parts) == 5 && parts[3] == "messages" && r.Method == "PUT":
+			var body struct {
+				Text string `json:"text"`
+			}
+			json.NewDecoder(r.Body).Decode(&body)
+			for _, m := range messages[parts[2]] {
+				if m["id"] == parts[4] {
+					m["text"], m["editedTimestamp"] = body.Text, ts(0)
+				}
+			}
+			j(w, obj{})
 		case len(parts) == 6 && parts[5] == "reactions" && r.Method == "POST":
 			var body struct {
 				Key string `json:"reactionKey"`

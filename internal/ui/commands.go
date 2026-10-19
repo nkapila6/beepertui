@@ -202,6 +202,7 @@ func init() {
 		{"dm", "[name|handle|phone]", "start a direct chat", func(m *Model, arg string) tea.Cmd { return m.cmdDM(arg) }},
 		{"group", "<title>", "create a group chat", func(m *Model, arg string) tea.Cmd { return m.cmdGroup(arg) }},
 		{"search", "<words>", "search all messages", func(m *Model, arg string) tea.Cmd { return m.cmdSearch(arg) }},
+		{"edit", "[new text]", "edit your message: the selected one if it's yours, else your latest. With text it saves straight away", func(m *Model, arg string) tea.Cmd { return m.cmdEdit(arg) }},
 		{"find", "<words>", "search this chat's messages and jump to one (/ in the message pane)", func(m *Model, arg string) tea.Cmd { return m.findInChat(arg) }},
 		{"inbox", "primary|low-priority|archive|unread", "switch inbox", func(m *Model, arg string) tea.Cmd {
 			for i, n := range inboxes {
