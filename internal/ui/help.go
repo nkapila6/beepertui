@@ -44,7 +44,8 @@ func helpSections(km keymap) []helpSection {
 			{"esc", "cancel"},
 		}},
 		{"Writing", -1, append(rows(secWriting),
-			[]string{"esc", "back to normal, text kept"},
+			[]string{"esc", "back to normal, text kept (vim normal mode with vim_compose)"},
+			[]string{":set vim_compose true", "vim in the box: w b e 0 $, d c y, dd cw x p, u, i a o"},
 			[]string{"C-c", "clear the message (again to leave)"},
 			[]string{"S-enter A-enter C-j", "new line"},
 			[]string{"@name", "mention someone (tab picks, C-n/C-p move)"},
@@ -200,6 +201,8 @@ func (m *Model) helpKey(key string) tea.Cmd {
 func (m *Model) paneHints() []string {
 	k := m.km.first
 	switch {
+	case m.mode == modeInsert && m.vim.normal:
+		return []string{"i a o insert  u undo", "w b e  dd cw  x p", "esc leave  " + k("send") + " send"}
 	case m.mode == modeInsert:
 		return []string{k("send") + " send  " + k("attach_file") + " file", k("paste_image") + " paste  " + k("media_picker") + " gif", "esc normal mode"}
 	case m.focus == paneMsgs:

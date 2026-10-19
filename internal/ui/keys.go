@@ -299,10 +299,14 @@ func (m *Model) startInsert() tea.Cmd {
 	}
 	m.mode = modeInsert
 	m.focus = paneMsgs
+	m.vim.normal = false
 	return m.compose.Focus()
 }
 
 func (m *Model) insertKey(k tea.KeyPressMsg) tea.Cmd {
+	if m.vim.normal {
+		return m.vimKey(k.String())
+	}
 	if used, cmd := m.mentionKey(k.String()); used {
 		return cmd
 	}
@@ -310,6 +314,10 @@ func (m *Model) insertKey(k tea.KeyPressMsg) tea.Cmd {
 		return cmd
 	}
 	if k.String() == "esc" {
+		if m.vimCompose {
+			m.enterVimNormal()
+			return nil
+		}
 		m.mode = modeNormal
 		m.compose.Blur()
 		return nil

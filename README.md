@@ -146,6 +146,10 @@ beepertui config edit                 # opens $EDITOR
 
 Inside the app, `:set` lists the settings and `:set compact true` changes one live and saves it. You can set `nerd_font`, `images`, `image_size`, `avatars`, `compact`, `mouse`, `notifications`, `chat_width`, `inbox`, `accent`, `gif_provider`, `beeper_url` and `autostart_beeper`. Env vars like `BEEPERTUI_NERDFONT` still win over the file. Font and font size belong to your terminal, not the app, so set those in kitty/Ghostty/etc.
 
+### Vim in the compose box
+
+`:set vim_compose true` (or `beepertui config set vim_compose true`) gives the compose box its own vim normal mode. `esc` while writing drops into it, with a `VIM` badge in the status line, and `esc` again leaves the box. It covers the everyday stuff: `h l j k w b e 0 ^ $ gg G` with counts, `d c y` with any of those motions, `dd cc yy D C S s x X r ~ J p P`, `i a I A o O`, and `u` / `C-r` for undo and redo. `enter` still sends. It's not all of vim: no text objects, visual mode or registers beyond the last cut.
+
 ### Changing keys
 
 Every key in the tables above can be rebound except `esc` and `ctrl+c`. `:keys` lists them all: `enter` on one waits for the new key, `C-a` adds an extra key, and `C-x` puts it back to the default. If the key is already taken it asks before swapping. Binds go in the same config file as everything else, and only the ones you've changed get written:

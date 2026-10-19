@@ -147,6 +147,8 @@ type Model struct {
 	km         keymap
 	capture    keyCapture // :keys waiting for a key press
 	keysNote   string     // last change, shown in the :keys footer
+	vim        vimState   // compose box normal mode (vim_compose)
+	vimCompose bool
 	live       bool
 	inflight   int
 	status     string

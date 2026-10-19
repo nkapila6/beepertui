@@ -622,6 +622,12 @@ func (m *Model) renderStatus() string {
 	switch m.mode {
 	case modeInsert:
 		mode, name = stModeIns, "INSERT"
+		if m.vim.normal {
+			mode, name = stModeAlt, "VIM"
+			if p := m.vim.count + m.vim.pending; p != "" {
+				name += " " + p
+			}
+		}
 	case modeFlash:
 		mode, name = stModeAlt, strings.ToUpper(flashVerbs[m.flash.action])
 	case modeLine, modePicker, modeGif:
