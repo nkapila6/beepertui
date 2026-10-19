@@ -216,6 +216,9 @@ func init() {
 		}},
 		{"label", "[name|none]", "filter inbox by label", func(m *Model, arg string) tea.Cmd { return m.cmdLabel(arg) }},
 		{"accounts", "", "list connected accounts", func(m *Model, _ string) tea.Cmd { return m.cmdAccounts() }},
+		{"sidebar", "[on|off]", "show or hide the chat list (ctrl+\" / ctrl+b)", func(m *Model, arg string) tea.Cmd {
+			return m.setChatsHidden(arg == "off" || (arg == "" && !m.chatsHidden()))
+		}},
 		{"images", "[on|off]", "toggle inline image previews", func(m *Model, arg string) tea.Cmd {
 			m.showImages = arg == "on" || (arg == "" && !m.showImages)
 			m.fixMsgScroll()

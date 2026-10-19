@@ -94,10 +94,18 @@ func (m *Model) normalKey(key string) tea.Cmd {
 		return nil
 	case "tab":
 		m.focus = 1 - m.focus
+		if m.focus == paneChats && m.chatsHidden() {
+			return m.setChatsHidden(false)
+		}
 		return nil
 	case "h", "left":
 		m.focus = paneChats
+		if m.chatsHidden() {
+			return m.setChatsHidden(false)
+		}
 		return nil
+	case `ctrl+"`, "ctrl+shift+'", "ctrl+b":
+		return m.setChatsHidden(!m.chatsHidden())
 	case "l", "right":
 		if m.cur != nil {
 			m.focus = paneMsgs
@@ -149,8 +157,13 @@ func (m *Model) normalKey(key string) tea.Cmd {
 		m.startFlash('s')
 		return nil
 	case "c":
+		// chat labels need the list on screen
+		var cmd tea.Cmd
+		if m.chatsHidden() {
+			cmd = m.setChatsHidden(false)
+		}
 		m.startFlash('c')
-		return nil
+		return cmd
 	case "f":
 		m.startLinkHints()
 		return nil
@@ -158,8 +171,13 @@ func (m *Model) normalKey(key string) tea.Cmd {
 		// paste an image without going into insert mode first
 		return tea.Batch(m.startInsert(), m.pasteFromClipboard())
 	case "C":
+		// chat labels need the list on screen
+		var cmd tea.Cmd
+		if m.chatsHidden() {
+			cmd = m.setChatsHidden(false)
+		}
 		m.startFlash('C')
-		return nil
+		return cmd
 	case "esc":
 		m.replyTo, m.editing = nil, nil
 		m.setAttach("", false)

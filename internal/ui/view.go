@@ -30,8 +30,15 @@ func (m *Model) composeHeight() int {
 // bodyHeight is the inner height of the two panes.
 func (m *Model) bodyHeight() int { return max(2, m.h-2-m.composeHeight()-2) }
 
-func (m *Model) chatWidth() int { return clamp(m.w*m.chatPct/100, 24, max(44, m.w*m.chatPct/100)) }
-func (m *Model) msgWidth() int  { return max(20, m.w-m.chatWidth()) }
+func (m *Model) chatWidth() int {
+	if m.chatsHidden() {
+		return 0
+	}
+	return clamp(m.w*m.chatPct/100, 24, max(44, m.w*m.chatPct/100))
+}
+
+func (m *Model) chatsHidden() bool { return m.hideChats && m.cur != nil }
+func (m *Model) msgWidth() int     { return max(20, m.w-m.chatWidth()) }
 
 // chat list scrolling, two rows per chat
 
@@ -136,8 +143,12 @@ func (m *Model) render() string {
 	case modeGif:
 		body = m.renderGif()
 	default:
-		chats := titledPane(m.paneStyle(paneChats), m.chatWidth(), m.bodyHeight()+2, m.chatsTitle(), m.renderChats())
 		msgs := titledPane(m.paneStyle(paneMsgs), m.msgWidth(), m.bodyHeight()+2, m.msgsTitle(), m.renderMsgs())
+		if m.chatsHidden() {
+			body = msgs
+			break
+		}
+		chats := titledPane(m.paneStyle(paneChats), m.chatWidth(), m.bodyHeight()+2, m.chatsTitle(), m.renderChats())
 		body = lipgloss.JoinHorizontal(lipgloss.Top, chats, msgs)
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, m.renderHeader(), body, m.renderCompose(), m.renderStatus())
@@ -595,6 +606,9 @@ func (m *Model) renderCompose() string {
 	for _, h := range m.paneHints() {
 		hints = append(hints, stDim.Render(" "+truncate(h, cw-2)))
 	}
+	if cw == 0 {
+		return st.Width(w).Render(content)
+	}
 	left := lipgloss.Place(cw, m.composeHeight(), lipgloss.Left, lipgloss.Center, strings.Join(hints, "\n"))
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, st.Width(w).Render(content))
 }
@@ -867,4 +881,26 @@ func quoteCard(o *beeper.Message, w int) []string {
 		bar + st.Render(truncate(quotedName(*o), w-4)),
 		bar + stDim.Render(truncate(firstNonEmpty(text, "message"), w-4)),
 	}
+}
+
+// setChatsHidden shows or hides the chat list. The message pane changes
+// width, so it lays out again like a window resize.
+func (m *Model) setChatsHidden(hide bool) tea.Cmd {
+	if hide && m.cur == nil {
+		m.setErr("open a chat first")
+		return nil
+	}
+	m.hideChats = hide
+	if hide {
+		m.focus = paneMsgs
+		m.setStatus(`chat list hidden, ctrl+" or ctrl+b brings it back`)
+	} else {
+		m.setStatus("")
+	}
+	return m.relayout()
+}
+
+func (m *Model) relayout() tea.Cmd {
+	w, h := m.w, m.h
+	return func() tea.Msg { return tea.WindowSizeMsg{Width: w, Height: h} }
 }

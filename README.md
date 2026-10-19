@@ -57,6 +57,7 @@ If Beeper Desktop isn't running, beepertui starts it hidden in the background an
 | --- | --- |
 | `j` `k` `gg` `G` `C-d` `C-u` | move |
 | `h` `l` `tab` | switch between chats and messages |
+| `C-"` `C-b` | hide or show the chat list so messages get the full width (`:sidebar` too). `C-"` needs a terminal with the kitty keyboard protocol (kitty, Ghostty, WezTerm) |
 | `J` `K` | next / previous chat, from either pane |
 | `enter` | open chat / start writing |
 | `i` `a` | write. `enter` sends, `shift+enter` (or `alt+enter`, `C-j`) for a new line, `esc` leaves, `C-v` pastes an image, `C-c` clears, `@` mentions someone, `:joy` (or `C-e`) adds emoji |

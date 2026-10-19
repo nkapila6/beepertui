@@ -42,7 +42,7 @@ func (m *Model) startFlash(action rune) {
 		return ts
 	}
 	var chats, msgs []target
-	if first, last := m.chatRange(); len(m.chats) > 0 {
+	if first, last := m.chatRange(); len(m.chats) > 0 && !m.chatsHidden() {
 		chats = near(paneChats, first, last, m.chatCur)
 	}
 	if first, last := m.msgRange(); m.cur != nil && len(m.msgs) > 0 {

@@ -122,6 +122,7 @@ type Model struct {
 
 	cfg           *config.Config
 	chatPct       int
+	hideChats     bool // ctrl+" / ctrl+b, only while a chat is open
 	notifications bool
 
 	hints     linkHints
