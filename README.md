@@ -60,7 +60,7 @@ If Beeper Desktop isn't running, beepertui starts it hidden in the background an
 | `C-"` `C-b` | hide or show the chat list so messages get the full width (`:sidebar` too). `C-"` needs a terminal with the kitty keyboard protocol (kitty, Ghostty, WezTerm) |
 | `J` `K` | next / previous chat, from either pane |
 | `enter` | open chat / start writing |
-| `i` `a` | write. `enter` sends, `shift+enter` (or `alt+enter`, `C-j`) for a new line, `esc` leaves, `C-v` pastes an image, `C-c` clears, `@` mentions someone, `:joy` (or `C-e`) adds emoji |
+| `i` `a` | write. `enter` sends, `shift+enter` (or `alt+enter`, `C-j`) for a new line, `esc` leaves (or drops into vim normal mode with `vim_compose`), `C-v` pastes an image, `C-c` clears, `@` mentions someone, `:joy` (or `C-e`) adds emoji |
 | `s` | flash jump anywhere: labels every chat and message on screen at once |
 | `c` | flash just the chats and switch to one, from either pane |
 | `f` | link hints: every link on screen gets a label, pick one, then `o` opens it in the browser or `y` yanks it |
@@ -69,6 +69,7 @@ If Beeper Desktop isn't running, beepertui starts it hidden in the background an
 | `y` `r` `R` `e` `x` `o` `U` | flash pick, then yank / reply / react / edit / delete / open / unreact |
 | `v` `d` | flash pick, then view the image big / download the attachment to `~/Downloads` |
 | `enter` on an image | image viewer: `d` download, `o` open, `n`/`p` next and previous image, `esc` close |
+| `enter` on a video | plays it in the terminal with sound (needs `mpv`, see below) |
 | `yy` `rr` `RR` ... | same thing on the message under the cursor |
 | `p` `m` `L` `A` `u` `!` | pin, mute, low priority, archive, read/unread, reminder |
 | `O` | jump to this chat (or message) in Beeper Desktop |
@@ -130,7 +131,7 @@ Tenor's API shut down in 2026, so real GIF search needs a free KLIPY or GIPHY ke
 - Paste any emoji and press enter.
 - Text that matches no emoji, or anything sent with `alt+enter`, goes out as a text reaction. Other Beeper clients display it as is.
 
-Commands worth knowing: `:search <words>` searches every message across every network, `:attach ~/file.pdf` stages a file for the next message, `:remind 2h`, `:expiry 24h` for disappearing messages, `:label`, `:accounts`, `:info`.
+Commands worth knowing: `:edit` (your selected or latest message; `:edit new text` saves straight away), `:keys`, `:sidebar`, `:search <words>` searches every message across every network, `:attach ~/file.pdf` stages a file for the next message, `:remind 2h`, `:expiry 24h` for disappearing messages, `:label`, `:accounts`, `:info`.
 
 ## Config
 
@@ -144,7 +145,7 @@ beepertui config unset accent
 beepertui config edit                 # opens $EDITOR
 ```
 
-Inside the app, `:set` lists the settings and `:set compact true` changes one live and saves it. You can set `nerd_font`, `images`, `image_size`, `avatars`, `compact`, `mouse`, `notifications`, `chat_width`, `inbox`, `accent`, `gif_provider`, `beeper_url` and `autostart_beeper`. Env vars like `BEEPERTUI_NERDFONT` still win over the file. Font and font size belong to your terminal, not the app, so set those in kitty/Ghostty/etc.
+Inside the app, `:set` lists the settings and `:set compact true` changes one live and saves it. You can set `nerd_font`, `images`, `image_size`, `avatars`, `compact`, `mouse`, `notifications`, `chat_width`, `inbox`, `accent`, `gif_provider`, `beeper_url`, `autostart_beeper`, `notification_preview` and `vim_compose`. Env vars like `BEEPERTUI_NERDFONT` still win over the file. Font and font size belong to your terminal, not the app, so set those in kitty/Ghostty/etc.
 
 ### Vim in the compose box
 
@@ -163,7 +164,7 @@ key.top = "g g, home"     # "g g" means two presses
 
 ## Looks
 
-Senders get their own colour, days get a divider, and there's a `── new ──` line where you left off. Your messages show a ✓ when sent and ✓✓ once seen. Your latest message always says who's seen it (`seen by Priya, Sam · 2 of 3`), any of yours shows the same when you scroll onto it, and hovering the ✓✓ lists everyone with times. Chats show their avatar: the real one in Ghostty and kitty, coloured initials elsewhere.
+Senders get their own colour, days get a divider, and there's a `── new ──` line where you left off. Your messages show a ✓ when sent and ✓✓ once seen. Your latest message always says who's seen it (`seen by Gaurav, CSK · 2 of 3`), any of yours shows the same when you scroll onto it, and hovering the ✓✓ lists everyone with times. Replies carry a quote card of what they answer, in the quoted person's colour, and your own say `you replied to <name>` so it's clear who's answering whom. Chats show their avatar: the real one in Ghostty and kitty, coloured initials elsewhere.
 
 With a [Nerd Font](https://www.nerdfonts.com) installed, set `BEEPERTUI_NERDFONT=1` (or `:icons on`) to get network logos, nicer status icons and a lualine-style status line. `:avatars`, `:compact` and `:images` toggle the rest.
 
@@ -177,7 +178,7 @@ New messages notify you through the terminal: kitty, Ghostty, WezTerm, iTerm and
 
 ## Storage
 
-Nothing is stored. beepertui doesn't read Beeper's database or keep a cache. Every chat and message comes from Beeper Desktop's local API (HTTP plus a websocket for live updates) and lives in memory until you quit. The only files it writes are temp images it deletes again, and downloads you ask for in `~/Downloads`. Downloads also pop a toast, plus a desktop notification in Ghostty, kitty, iTerm, WezTerm and tuios.
+Nothing is stored. beepertui doesn't read Beeper's database or keep a cache. Every chat and message comes from Beeper Desktop's local API (HTTP plus a websocket for live updates) and lives in memory until you quit. The only files it writes are its config, temp images and video posters it deletes again, and downloads you ask for in `~/Downloads`. Downloads also pop a toast, plus a desktop notification in Ghostty, kitty, iTerm, WezTerm and tuios.
 
 ## Not in here
 
