@@ -144,6 +144,17 @@ beepertui config edit                 # opens $EDITOR
 
 Inside the app, `:set` lists the settings and `:set compact true` changes one live and saves it. You can set `nerd_font`, `images`, `image_size`, `avatars`, `compact`, `mouse`, `notifications`, `chat_width`, `inbox`, `accent`, `gif_provider`, `beeper_url` and `autostart_beeper`. Env vars like `BEEPERTUI_NERDFONT` still win over the file. Font and font size belong to your terminal, not the app, so set those in kitty/Ghostty/etc.
 
+### Changing keys
+
+Every key in the tables above can be rebound except `esc` and `ctrl+c`. `:keys` lists them all: `enter` on one waits for the new key, `C-a` adds an extra key, and `C-x` puts it back to the default. If the key is already taken it asks before swapping. Binds go in the same config file as everything else, and only the ones you've changed get written:
+
+```toml
+key.reply = "ctrl+t"
+key.top = "g g, home"     # "g g" means two presses
+```
+
+`beepertui config keys` prints every action with its keys, and `beepertui config set key.reply "ctrl+t"` works too (it warns if the key clashes with something). The help screen and the hints by the compose box follow whatever you set.
+
 ## Looks
 
 Senders get their own colour, days get a divider, and there's a `── new ──` line where you left off. Your messages show a ✓ when sent and ✓✓ once seen. Your latest message always says who's seen it (`seen by Priya, Sam · 2 of 3`), any of yours shows the same when you scroll onto it, and hovering the ✓✓ lists everyone with times. Chats show their avatar: the real one in Ghostty and kitty, coloured initials elsewhere.

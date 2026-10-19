@@ -15,84 +15,43 @@ type helpSection struct {
 	rows  [][]string
 }
 
-func helpSections() []helpSection {
+func helpSections(km keymap) []helpSection {
 	cmds := make([][]string, 0, len(commands))
 	for _, c := range commands {
 		cmds = append(cmds, []string{strings.TrimSpace(":" + c.name + " " + c.args), c.help})
 	}
+	rows := func(sec string) [][]string {
+		var out [][]string
+		for _, d := range keyDefs {
+			if d.Section == sec {
+				out = append(out, []string{km.label(d.Action), d.Help})
+			}
+		}
+		return out
+	}
+	anywhere := append(rows(secAnywhere),
+		[]string{"C-c", "quit (elsewhere cancels)"},
+		[]string{"esc", "drop reply / edit / attach, clear a filter"},
+		[]string{":keys", "change any of these keys"},
+	)
 	return []helpSection{
-		{"Anywhere", -1, [][]string{
-			{"tab  h  l", "switch pane"},
-			{"C-\"  C-b", "hide / show the chat list"},
-			{"/", "chat list: filter chats · messages: search this chat"},
-			{"[  ]", "prev / next inbox"},
-			{"J  K", "next / previous chat"},
-			{"c", "flash: switch to any chat"},
-			{"f", "link hints: label, then o open / y yank"},
-			{"cc  :chats", "chat list popup, type and enter"},
-			{"C", "flash: pick a chat, then act on it"},
-			{"n  N", "new DM / new group"},
-			{":", "command line"},
-			{"C-r", "refresh"},
-			{"?", "this help"},
-			{"q  C-c", "quit (C-c elsewhere cancels)"},
-		}},
-		{"Chat list (left)", int(paneChats), [][]string{
-			{"j  k", "move"},
-			{"gg  G", "top / bottom"},
-			{"C-d  C-u", "half page"},
-			{"enter", "open chat"},
-			{"s", "flash jump to a chat"},
-			{"p", "pin / unpin"},
-			{"m", "mute / unmute"},
-			{"A", "archive / unarchive"},
-			{"L", "low priority / primary"},
-			{"u", "mark read / unread"},
-			{"!", "set a reminder"},
-			{"O", "open in Beeper Desktop"},
-		}},
-		{"Messages (right)", int(paneMsgs), [][]string{
-			{"j  k", "move (k at top loads older)"},
-			{"gg  G", "oldest / newest"},
-			{"i  a  enter", "write a message"},
-			{"s", "flash jump to a message"},
-			{"y", "yank text to clipboard"},
-			{"r", "reply"},
-			{"R", "react"},
-			{"e", "edit (yours)"},
-			{"x", "delete (yours, asks first)"},
-			{"o", "open link or attachment"},
-			{"enter on image", "image viewer"},
-			{"v", "view an image big"},
-			{"d", "download attachment to ~/Downloads"},
-			{"F", "forward to another chat"},
-			{"U", "remove your reaction"},
-			{"O", "show message in Beeper"},
-			{"p m A L u !", "act on the open chat"},
-		}},
+		{"Anywhere", -1, anywhere},
+		{"Chat list (left)", int(paneChats), append(rows(secChats), rows(secChat)...)},
+		{"Messages (right)", int(paneMsgs), append(rows(secMsgs), []string{km.label("pin") + " ...", "chat keys act on the open chat"})},
 		{"Flash labels", -1, [][]string{
-			{"s", "everything on screen, both panes"},
-			{"c  C", "chats only (switch / action menu)"},
-			{"y r R e x o U v d F", "messages only"},
-			{"<label>", "act on that message"},
-			{"yy rr CC ...", "act on the cursor item"},
+			{"<label>", "act on that item"},
+			{"same key again", "act on the cursor item (yy, rr, cc ...)"},
 			{"esc", "cancel"},
 		}},
-		{"Writing", -1, [][]string{
-			{"enter", "send (stays in insert)"},
-			{"esc", "back to normal, text kept"},
-			{"C-c", "clear the message (again to leave)"},
-			{"S-enter A-enter C-j", "new line"},
-			{"@name", "mention someone (tab picks, C-n/C-p move)"},
-			{":joy", "inline emoji (tab picks, :joy: swaps itself)"},
-			{"C-e", "emoji picker, inserts at the cursor"},
-			{"C-g  :media", "media picker: gifs, memes, reactions, stickers, cats..."},
-			{"C-v", "attach clipboard image or copied file"},
-			{"C-o  :files", "pick a file (Finder dialog on macOS)"},
-			{"drag a file in", "attaches it"},
-			{":attach <path>", "send a file with the next message"},
-			{"esc in normal", "drop reply / edit / attach"},
-		}},
+		{"Writing", -1, append(rows(secWriting),
+			[]string{"esc", "back to normal, text kept"},
+			[]string{"C-c", "clear the message (again to leave)"},
+			[]string{"S-enter A-enter C-j", "new line"},
+			[]string{"@name", "mention someone (tab picks, C-n/C-p move)"},
+			[]string{":joy", "inline emoji (tab picks, :joy: swaps itself)"},
+			[]string{"drag a file in", "attaches it"},
+			[]string{":attach <path>", "send a file with the next message"},
+		)},
 		{"Reacting", -1, [][]string{
 			{"1-6", "quick reaction"},
 			{"type", "search by name: fire, tada, +1"},
@@ -152,7 +111,7 @@ func (m *Model) helpLines() []string {
 
 	colBlocks := make([][]string, cols)
 	colH := make([]int, cols)
-	for _, s := range helpSections() {
+	for _, s := range helpSections(m.km) {
 		border := stDim
 		titleSt := stAccent.Bold(true)
 		if s.pane >= 0 && pane(s.pane) == m.focus {
@@ -239,12 +198,13 @@ func (m *Model) helpKey(key string) tea.Cmd {
 
 // paneHints is the cheat sheet under the chat list, for whatever is focused right now.
 func (m *Model) paneHints() []string {
+	k := m.km.first
 	switch {
 	case m.mode == modeInsert:
-		return []string{"enter send  C-o file", "C-v paste  C-g gif", "esc normal mode"}
+		return []string{k("send") + " send  " + k("attach_file") + " file", k("paste_image") + " paste  " + k("media_picker") + " gif", "esc normal mode"}
 	case m.focus == paneMsgs:
-		return []string{"y yank  r reply  R react", "e edit  x del  o open", "c chats  C chat menu  ?"}
+		return []string{k("yank") + " yank  " + k("reply") + " reply  " + k("react") + " react", k("edit") + " edit  " + k("delete") + " del  " + k("open") + " open", k("chats") + " chats  " + k("chat_action") + " chat menu  " + k("help")}
 	default:
-		return []string{"enter open  s/c jump", "C menu  p pin  m mute", "/ search  ? all keys"}
+		return []string{k("open_chat") + " open  " + k("jump") + "/" + k("chats") + " jump", k("chat_action") + " menu  " + k("pin") + " pin  " + k("mute") + " mute", k("search") + " search  " + k("help") + " all keys"}
 	}
 }

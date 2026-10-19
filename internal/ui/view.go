@@ -644,9 +644,9 @@ func (m *Model) renderStatus() string {
 		switch m.flash.action {
 		case 's':
 		case 'c':
-			msg += ", c again for the chat list"
+			msg += ", " + shortKey(m.flash.key) + " again for the chat list"
 		default:
-			msg += fmt.Sprintf(", %c again for the cursor", m.flash.action)
+			msg += ", " + shortKey(m.flash.key) + " again for the cursor"
 		}
 		msg += ", esc cancels"
 	}
@@ -893,7 +893,7 @@ func (m *Model) setChatsHidden(hide bool) tea.Cmd {
 	m.hideChats = hide
 	if hide {
 		m.focus = paneMsgs
-		m.setStatus(`chat list hidden, ctrl+" or ctrl+b brings it back`)
+		m.setStatus("chat list hidden, " + m.km.first("toggle_sidebar") + " brings it back")
 	} else {
 		m.setStatus("")
 	}

@@ -13,6 +13,10 @@ import (
 // applySetting pushes one resolved config value into the running app.
 func (m *Model) applySetting(key string) {
 	c := m.cfg
+	if strings.HasPrefix(key, config.KeyPrefix) {
+		m.km = buildKeymap(c)
+		return
+	}
 	switch key {
 	case "nerd_font":
 		m.nerdFont = c.Bool(key)

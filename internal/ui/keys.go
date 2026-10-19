@@ -76,109 +76,8 @@ func (m *Model) ctrlC() tea.Cmd {
 }
 
 func (m *Model) normalKey(key string) tea.Cmd {
-	if m.pendingG {
-		m.pendingG = false
-		if key == "g" {
-			m.move(-1 << 30)
-			return nil
-		}
-	}
-
-	// works in both panes
-	switch key {
-	case "q":
-		m.Close()
-		return tea.Quit
-	case "?":
-		m.mode, m.helpOff = modeHelp, 0
-		return nil
-	case "tab":
-		m.focus = 1 - m.focus
-		if m.focus == paneChats && m.chatsHidden() {
-			return m.setChatsHidden(false)
-		}
-		return nil
-	case "h", "left":
-		m.focus = paneChats
-		if m.chatsHidden() {
-			return m.setChatsHidden(false)
-		}
-		return nil
-	case `ctrl+"`, "ctrl+shift+'", "ctrl+b":
-		return m.setChatsHidden(!m.chatsHidden())
-	case "l", "right":
-		if m.cur != nil {
-			m.focus = paneMsgs
-		}
-		return nil
-	case "j", "down":
-		return m.move(1)
-	case "k", "up":
-		return m.move(-1)
-	case "ctrl+d":
-		return m.move(m.halfPage())
-	case "ctrl+u":
-		return m.move(-m.halfPage())
-	case "g":
-		m.pendingG = true
-		return nil
-	case "G":
-		return m.move(1 << 30)
-	case "J", "K":
-		// next / previous chat from anywhere, without leaving the message pane
-		if len(m.chats) == 0 {
-			return nil
-		}
-		d := 1
-		if key == "K" {
-			d = -1
-		}
-		m.chatCur = clamp(m.chatCur+d, 0, len(m.chats)-1)
-		m.fixChatScroll()
-		return m.openChat(m.chats[m.chatCur], "")
-	case "i", "a":
-		return m.startInsert()
-	case "/":
-		// in a chat it searches that chat, in the list it filters chats
-		if m.focus == paneMsgs && m.cur != nil {
-			return m.findInChat("")
-		}
-		return m.promptSearch()
-	case ":":
-		return m.promptCommand("")
-	case "[":
-		return m.cycleInbox(-1)
-	case "]":
-		return m.cycleInbox(1)
-	case "ctrl+r":
-		m.setStatus("refreshing")
-		return tea.Batch(m.loadChats(), m.reloadOpenChat())
-	case "s":
-		m.startFlash('s')
-		return nil
-	case "c":
-		// chat labels need the list on screen
-		var cmd tea.Cmd
-		if m.chatsHidden() {
-			cmd = m.setChatsHidden(false)
-		}
-		m.startFlash('c')
-		return cmd
-	case "f":
-		m.startLinkHints()
-		return nil
-	case "ctrl+v":
-		// paste an image without going into insert mode first
-		return tea.Batch(m.startInsert(), m.pasteFromClipboard())
-	case "C":
-		// chat labels need the list on screen
-		var cmd tea.Cmd
-		if m.chatsHidden() {
-			cmd = m.setChatsHidden(false)
-		}
-		m.startFlash('C')
-		return cmd
-	case "esc":
+	if key == "esc" {
+		m.pendingKey = ""
 		m.replyTo, m.editing = nil, nil
 		m.setAttach("", false)
 		if m.query != "" {
@@ -187,50 +86,126 @@ func (m *Model) normalKey(key string) tea.Cmd {
 		}
 		m.status = ""
 		return nil
-	case "n":
-		return m.cmdDM("")
-	case "N":
-		return m.promptCommand("group ")
 	}
-
-	// chat-level actions target the cursor chat in the list, or the open chat in the message pane
-	if ch := m.targetChat(); ch != nil {
-		switch key {
-		case "p":
-			return m.toggleChat(*ch, "isPinned", !ch.IsPinned, "pinned", "unpinned")
-		case "m":
-			return m.toggleChat(*ch, "isMuted", !ch.IsMuted, "muted", "unmuted")
-		case "L":
-			return m.toggleChat(*ch, "isLowPriority", !ch.IsLowPriority, "moved to low priority", "moved to primary")
-		case "A":
-			return m.archive(*ch, !ch.IsArchived)
-		case "u":
-			return m.toggleUnread(*ch)
-		case "!":
-			return m.promptRemind(*ch)
-		case "O":
-			msgID := ""
-			if m.focus == paneMsgs && m.msgCur < len(m.msgs) {
-				msgID = m.msgs[m.msgCur].ID
-			}
-			id := ch.ID
-			return m.run("opened in Beeper", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
-				return nil, m.c.Focus(ctx, id, msgID)
-			})
+	sections := []string{secAnywhere, secChat, secMsgs}
+	if m.focus == paneChats {
+		sections[2] = secChats
+	}
+	if p := m.pendingKey; p != "" {
+		m.pendingKey = ""
+		if a := m.km.action(p+" "+key, sections...); a != "" {
+			return m.doAction(a, key)
 		}
 	}
-
-	if m.focus == paneChats {
-		if key == "enter" && m.chatCur < len(m.chats) {
-			return m.openChat(m.chats[m.chatCur], "")
+	a := m.km.action(key, sections...)
+	if a == "" {
+		if m.km.prefix[key] {
+			m.pendingKey = key
 		}
 		return nil
 	}
+	return m.doAction(a, key)
+}
 
-	switch key {
-	case "y", "r", "R", "e", "x", "o", "U", "v", "d", "F":
-		m.startFlash(rune(key[0]))
-	case "enter":
+// doAction runs a normal-mode action. key is what was pressed, so flash
+// can treat a second press as "this one".
+func (m *Model) doAction(action, key string) tea.Cmd {
+	if r, ok := flashActions[action]; ok {
+		if (r == 'r' || r == 'R' || r == 'y' || r == 'e' || r == 'x' || r == 'o' || r == 'U' || r == 'v' || r == 'd' || r == 'F') && m.focus != paneMsgs {
+			return nil
+		}
+		var cmd tea.Cmd
+		if (r == 'c' || r == 'C') && m.chatsHidden() {
+			// chat labels need the list on screen
+			cmd = m.setChatsHidden(false)
+		}
+		m.startFlash(r, key)
+		return cmd
+	}
+
+	switch action {
+	case "quit":
+		m.Close()
+		return tea.Quit
+	case "help":
+		m.mode, m.helpOff = modeHelp, 0
+		return nil
+	case "switch_pane":
+		m.focus = 1 - m.focus
+		if m.focus == paneChats && m.chatsHidden() {
+			return m.setChatsHidden(false)
+		}
+		return nil
+	case "focus_chats":
+		m.focus = paneChats
+		if m.chatsHidden() {
+			return m.setChatsHidden(false)
+		}
+		return nil
+	case "focus_msgs":
+		if m.cur != nil {
+			m.focus = paneMsgs
+		}
+		return nil
+	case "toggle_sidebar":
+		return m.setChatsHidden(!m.chatsHidden())
+	case "down":
+		return m.move(1)
+	case "up":
+		return m.move(-1)
+	case "half_down":
+		return m.move(m.halfPage())
+	case "half_up":
+		return m.move(-m.halfPage())
+	case "top":
+		return m.move(-1 << 30)
+	case "bottom":
+		return m.move(1 << 30)
+	case "next_chat", "prev_chat":
+		// next / previous chat from anywhere, without leaving the message pane
+		if len(m.chats) == 0 {
+			return nil
+		}
+		d := 1
+		if action == "prev_chat" {
+			d = -1
+		}
+		m.chatCur = clamp(m.chatCur+d, 0, len(m.chats)-1)
+		m.fixChatScroll()
+		return m.openChat(m.chats[m.chatCur], "")
+	case "write":
+		return m.startInsert()
+	case "search":
+		// in a chat it searches that chat, in the list it filters chats
+		if m.focus == paneMsgs && m.cur != nil {
+			return m.findInChat("")
+		}
+		return m.promptSearch()
+	case "command":
+		return m.promptCommand("")
+	case "prev_inbox":
+		return m.cycleInbox(-1)
+	case "next_inbox":
+		return m.cycleInbox(1)
+	case "refresh":
+		m.setStatus("refreshing")
+		return tea.Batch(m.loadChats(), m.reloadOpenChat())
+	case "link_hints":
+		m.startLinkHints()
+		return nil
+	case "paste":
+		// paste an image without going into insert mode first
+		return tea.Batch(m.startInsert(), m.pasteFromClipboard())
+	case "new_dm":
+		return m.cmdDM("")
+	case "new_group":
+		return m.promptCommand("group ")
+	case "open_chat":
+		if m.focus == paneChats && m.chatCur < len(m.chats) {
+			return m.openChat(m.chats[m.chatCur], "")
+		}
+		return nil
+	case "select":
 		// enter on an image opens the viewer, anywhere else it starts a message
 		if m.msgCur < len(m.msgs) {
 			if _, ok := messageImage(m.msgs[m.msgCur]); ok {
@@ -238,6 +213,35 @@ func (m *Model) normalKey(key string) tea.Cmd {
 			}
 		}
 		return m.startInsert()
+	}
+
+	// chat-level actions target the cursor chat in the list, or the open chat in the message pane
+	ch := m.targetChat()
+	if ch == nil {
+		return nil
+	}
+	switch action {
+	case "pin":
+		return m.toggleChat(*ch, "isPinned", !ch.IsPinned, "pinned", "unpinned")
+	case "mute":
+		return m.toggleChat(*ch, "isMuted", !ch.IsMuted, "muted", "unmuted")
+	case "low_priority":
+		return m.toggleChat(*ch, "isLowPriority", !ch.IsLowPriority, "moved to low priority", "moved to primary")
+	case "archive":
+		return m.archive(*ch, !ch.IsArchived)
+	case "unread":
+		return m.toggleUnread(*ch)
+	case "remind":
+		return m.promptRemind(*ch)
+	case "open_in_beeper":
+		msgID := ""
+		if m.focus == paneMsgs && m.msgCur < len(m.msgs) {
+			msgID = m.msgs[m.msgCur].ID
+		}
+		id := ch.ID
+		return m.run("opened in Beeper", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
+			return nil, m.c.Focus(ctx, id, msgID)
+		})
 	}
 	return nil
 }
@@ -305,20 +309,21 @@ func (m *Model) insertKey(k tea.KeyPressMsg) tea.Cmd {
 	if used, cmd := m.emojiKey(k.String()); used {
 		return cmd
 	}
-	switch k.String() {
-	case "esc":
+	if k.String() == "esc" {
 		m.mode = modeNormal
 		m.compose.Blur()
 		return nil
-	case "enter":
+	}
+	switch m.km.action(k.String(), secWriting) {
+	case "send":
 		return m.submitCompose()
-	case "ctrl+v":
+	case "paste_image":
 		return m.pasteFromClipboard()
-	case "ctrl+g":
+	case "media_picker":
 		return m.openGifPicker("")
-	case "ctrl+e":
+	case "emoji_picker":
 		return m.openEmojiPicker()
-	case "ctrl+o":
+	case "attach_file":
 		return m.chooseFile()
 	}
 	var cmd tea.Cmd

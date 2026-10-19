@@ -68,13 +68,45 @@ func Dir() string {
 
 func Path() string { return filepath.Join(Dir(), "config.toml") }
 
+// KeyBind is a remappable action. The ui package registers them, and the
+// file stores changes as key.<action> = "k1, k2".
+type KeyBind struct {
+	Action  string
+	Keys    string // defaults, comma separated
+	Section string
+	Help    string
+}
+
+// Binds holds every remappable action, filled in by the ui package.
+var Binds []KeyBind
+
+const KeyPrefix = "key."
+
 func lookup(key string) (Setting, bool) {
 	for _, s := range Settings {
 		if s.Key == key {
 			return s, true
 		}
 	}
+	if a, ok := strings.CutPrefix(key, KeyPrefix); ok {
+		for _, k := range Binds {
+			if k.Action == a {
+				return Setting{Key: key, Default: k.Keys, Kind: "keys", Help: k.Help}, true
+			}
+		}
+	}
 	return Setting{}, false
+}
+
+// SplitKeys turns "j, down" into its keys. An empty value means unbound.
+func SplitKeys(v string) []string {
+	var out []string
+	for _, k := range strings.Split(v, ",") {
+		if k = strings.TrimSpace(k); k != "" {
+			out = append(out, k)
+		}
+	}
+	return out
 }
 
 // Load reads the config file. A missing file is just an empty config.
@@ -147,6 +179,13 @@ func Validate(key, val string) error {
 		n, err := strconv.Atoi(val)
 		if err != nil || n < lo || n > hi {
 			return fmt.Errorf("%s wants a number from %d to %d", key, lo, hi)
+		}
+	case s.Kind == "keys":
+		for _, k := range SplitKeys(val) {
+			// these always have to work, so you can't lock yourself out
+			if k == "esc" || k == "ctrl+c" {
+				return fmt.Errorf("%s can't be rebound", k)
+			}
 		}
 	case s.Kind == "color":
 		if _, err := ParseColor(val); err != nil {
@@ -260,6 +299,17 @@ func (c *Config) Save() error {
 		} else {
 			fmt.Fprintf(&b, "# %s = %s\n\n", k, quote(s.Default))
 		}
+	}
+	var binds []string
+	for k := range c.values {
+		if strings.HasPrefix(k, KeyPrefix) {
+			binds = append(binds, k)
+		}
+	}
+	sort.Strings(binds)
+	b.WriteString("# key binds you've changed, as key.<action> = \"key, key\". `beepertui config keys` or :keys lists them all.\n")
+	for _, k := range binds {
+		fmt.Fprintf(&b, "%s = %s\n", k, strconv.Quote(c.values[k]))
 	}
 	tmp := c.path + ".tmp"
 	if err := os.WriteFile(tmp, []byte(b.String()), 0o644); err != nil {

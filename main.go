@@ -31,7 +31,7 @@ usage:
   beepertui login     approve beepertui in Beeper Desktop and save the token
   beepertui logout    forget and revoke the saved token
   beepertui status    show where the token comes from and if Beeper is reachable
-  beepertui config    show settings (config get|set|unset|edit|path)
+  beepertui config    show settings (config get|set|unset|edit|path|keys)
   beepertui version
 
 settings live in ~/.config/beepertui/config.toml (beepertui config).
@@ -260,6 +260,11 @@ func configCmd(cfg *config.Config, args []string) {
 			fail(err)
 		}
 		fmt.Printf("%s = %s\n", args[1], val)
+		if action, ok := strings.CutPrefix(args[1], config.KeyPrefix); ok {
+			for _, w := range ui.BindClashes(cfg, action) {
+				fmt.Println("warning: " + w)
+			}
+		}
 		if _, src := cfg.Value(args[1]); strings.HasPrefix(src, "env") {
 			fmt.Printf("note: %s is set and overrides this\n", strings.TrimPrefix(src, "env "))
 		}
@@ -275,6 +280,20 @@ func configCmd(cfg *config.Config, args []string) {
 		}
 		v, _ := cfg.Value(args[1])
 		fmt.Printf("%s back to %s\n", args[1], v)
+	case "keys":
+		fmt.Printf("# %s, change with beepertui config set key.<action> \"key, key\" or :keys\n", config.Path())
+		section := ""
+		for _, b := range config.Binds {
+			if b.Section != section {
+				section = b.Section
+				fmt.Printf("\n%s\n", section)
+			}
+			v, src := cfg.Value(config.KeyPrefix + b.Action)
+			if v == "" {
+				v = "unbound"
+			}
+			fmt.Printf("  %-16s %-26s %-10s %s\n", b.Action, v, "("+src+")", b.Help)
+		}
 	case "path":
 		fmt.Println(config.Path())
 	case "edit":

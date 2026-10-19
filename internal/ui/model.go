@@ -143,11 +143,14 @@ type Model struct {
 	// picker
 	pick picker
 
-	pendingG bool
-	live     bool
-	inflight int
-	status   string
-	isErr    bool
+	pendingKey string // first half of a two-key bind like "g g"
+	km         keymap
+	capture    keyCapture // :keys waiting for a key press
+	keysNote   string     // last change, shown in the :keys footer
+	live       bool
+	inflight   int
+	status     string
+	isErr      bool
 }
 
 func New(c *beeper.Client, cfg *config.Config) *Model {
@@ -177,6 +180,7 @@ func New(c *beeper.Client, cfg *config.Config) *Model {
 	for _, st := range config.Settings {
 		m.applySetting(st.Key)
 	}
+	m.km = buildKeymap(cfg)
 	go c.Stream(ctx, m.events)
 	return m
 }

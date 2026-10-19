@@ -17,7 +17,8 @@ type target struct {
 
 type flashState struct {
 	action rune
-	pane   pane // pane the action came from, for "yy" style repeats
+	key    string // what started it; pressing it again means "this one"
+	pane   pane   // pane the action came from, for "yy" style repeats
 	labels map[target]string
 	typed  string
 }
@@ -31,7 +32,7 @@ var flashVerbs = map[rune]string{
 	's': "jump", 'c': "chat", 'C': "chat action", 'y': "yank", 'r': "reply", 'R': "react", 'e': "edit", 'x': "delete", 'o': "open", 'U': "unreact", 'v': "view", 'd': "download", 'F': "forward",
 }
 
-func (m *Model) startFlash(action rune) {
+func (m *Model) startFlash(action rune, key string) {
 	near := func(p pane, first, last, cursor int) []target {
 		var ts []target
 		for i := first; i <= last; i++ {
@@ -69,11 +70,11 @@ func (m *Model) startFlash(action rune) {
 
 	// the action key itself is free so "yy" can mean "this one"
 	chars := labelChars
-	if action != 's' {
-		chars = strings.ReplaceAll(chars, string(action), "")
+	if action != 's' && len(key) == 1 {
+		chars = strings.ReplaceAll(chars, key, "")
 	}
 	labels := makeLabels(len(ts), chars)
-	m.flash = flashState{action: action, pane: m.focus, labels: map[target]string{}}
+	m.flash = flashState{action: action, key: key, pane: m.focus, labels: map[target]string{}}
 	for i, t := range ts {
 		m.flash.labels[t] = labels[i]
 	}
@@ -112,7 +113,7 @@ func (m *Model) flashKey(key string) tea.Cmd {
 	}
 	f := &m.flash
 	// repeating the action key acts on the cursor, vim style (yy, rr, ...)
-	if f.typed == "" && key == string(f.action) && f.action != 's' {
+	if f.typed == "" && key == f.key && f.action != 's' {
 		m.mode = modeNormal
 		if f.action == 'C' {
 			// the open chat when reading it, the cursor chat in the list
