@@ -238,6 +238,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.fixMsgScroll()
 		return m, tea.Batch(m.placeImages(), m.placePopup(), m.placeGifPreview(), m.afterResize())
 
+	case videoDoneMsg:
+		return m, m.afterVideo(msg.err)
+
 	case animMsg:
 		return m, m.stepAnim()
 

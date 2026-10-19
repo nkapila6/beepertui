@@ -67,6 +67,9 @@ func (m *Model) viewImage(msgIdx int) tea.Cmd {
 		m.setErr("no image in that message")
 		return nil
 	}
+	if isVideo(a) {
+		return m.playVideo(a)
+	}
 	return m.openPopup(msgIdx, a)
 }
 

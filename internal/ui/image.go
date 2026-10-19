@@ -118,6 +118,8 @@ type thumb struct {
 	frames []animFrame
 	frame  int
 	next   time.Time
+
+	dur time.Duration // videos, when we made the poster ourselves
 }
 
 func (t *thumb) ready() bool { return t != nil && (t.img != nil || t.sent) }
@@ -125,8 +127,14 @@ func (t *thumb) ready() bool { return t != nil && (t.img != nil || t.sent) }
 // thumbSource is the URL to show for an attachment: the image itself, or a
 // video's poster frame.
 func thumbSource(a beeper.Attachment) string {
-	if a.Type == "video" {
-		return a.PosterImg
+	if isVideo(a) {
+		if a.PosterImg != "" {
+			return a.PosterImg
+		}
+		if a.SrcURL != "" {
+			return videoPrefix + a.SrcURL
+		}
+		return ""
 	}
 	if a.Type == "img" || strings.HasPrefix(a.MimeType, "image/") {
 		return a.SrcURL
@@ -154,7 +162,15 @@ func (m *Model) loadThumbs() tea.Cmd {
 				t.id = kittyFirstID + m.nextImageID
 			}
 			cmds = append(cmds, m.run("", func(ctx context.Context) (func(*Model) tea.Cmd, error) {
-				path, err := m.localPath(ctx, src)
+				var dur time.Duration
+				path, err := m.localPath(ctx, strings.TrimPrefix(src, videoPrefix))
+				if err == nil && strings.HasPrefix(src, videoPrefix) {
+					var poster string
+					if poster, dur, err = videoPoster(ctx, path); err == nil {
+						defer os.Remove(poster)
+						path = poster
+					}
+				}
 				var md media
 				if err == nil {
 					px := 160
@@ -167,7 +183,7 @@ func (m *Model) loadThumbs() tea.Cmd {
 					md, err = loadMedia(ctx, path, px, mode == imagesKitty)
 				}
 				return func(m *Model) tea.Cmd {
-					t.loading = false
+					t.loading, t.dur = false, dur
 					if err != nil {
 						t.failed = true
 						return nil

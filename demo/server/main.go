@@ -43,6 +43,7 @@ var (
 	imagePath = flag.String("image", "", "local image served for picture messages and avatars")
 	addr      = flag.String("addr", "127.0.0.1:23999", "listen address")
 	delay     = flag.Duration("send-delay", 0, "how long sent messages take to show up, like a slow network")
+	videoPath = flag.String("video", "", "local video posted in Weekend Hike, with no poster so the app makes one")
 )
 
 func ts(ago time.Duration) string { return time.Now().Add(-ago).Format(time.RFC3339) }
@@ -127,6 +128,11 @@ func seed() {
 	msg("hike", "priya", "Gaurav Gosain", 3*h, "count me in, I'll drive", nil)
 	msg("hike", "omar", "Omar Haddad", 50*mn, "forecast says clear skies", nil)
 	msg("hike", "omar", "Omar Haddad", 48*mn, "meeting at the north parking lot", nil)
+	if *videoPath != "" {
+		msg("hike", "lena", "Fazalullah", 40*mn, "view from the top last time", obj{
+			"type": "VIDEO", "attachments": []obj{{"id": "v1", "type": "video", "srcURL": "file://" + *videoPath, "mimeType": "video/mp4", "fileName": "summit.mp4"}},
+		})
+	}
 
 	addChat("mom", "Mom", "iMessage", "single", 1, []obj{person("mom", "Mom")}, nil)
 	msg("mom", "mom", "Mom", 30*h, "did you eat?", nil)

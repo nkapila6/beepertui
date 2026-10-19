@@ -484,13 +484,16 @@ func (m *Model) msgBlockParts(i int) (lines []string, pre int, kinds []lineKind)
 		if src := thumbSource(a); src != "" && m.showImages {
 			if img := m.thumbLines(src, w); img != nil {
 				lines = append(lines, img...)
-				if a.Type != "video" {
+				if !isVideo(a) {
 					continue
 				}
-				label = "[video] " + a.FileName + "  (o plays)"
+				label = m.videoLabel(a, src)
 			} else if t := m.thumbs[src]; t != nil && t.loading {
 				label += "  loading..."
 			}
+		}
+		if isVideo(a) && !strings.HasSuffix(label, "loading...") {
+			label = m.videoLabel(a, thumbSource(a))
 		}
 		lines = append(lines, stDim.Render(truncate(label, w)))
 	}

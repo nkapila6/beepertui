@@ -72,7 +72,7 @@ var keyDefs = []config.KeyBind{
 	kb("view", "v", secMsgs, "flash: view an image big"),
 	kb("download", "d", secMsgs, "flash: download to ~/Downloads"),
 	kb("forward", "F", secMsgs, "flash: forward to another chat"),
-	kb("select", "enter", secMsgs, "on an image: viewer, otherwise write"),
+	kb("select", "enter", secMsgs, "on an image: viewer, on a video: play, otherwise write"),
 
 	kb("send", "enter", secWriting, "send"),
 	kb("paste_image", "ctrl+v", secWriting, "attach clipboard image or copied file"),

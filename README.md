@@ -95,6 +95,8 @@ Type `@` while writing and the chat's members pop up above the input. Keep typin
 
 Images and video posters show inline, and GIFs play. In Ghostty and kitty they're real images, drawn with the kitty graphics protocol. Everywhere else, tmux included, they fall back to chunky half-block thumbnails. HEIC and WebP work too. `o` opens the full thing, and `:images off` hides them. Set `BEEPERTUI_IMAGES=kitty|blocks|off` to override the detection.
 
+Videos get a poster frame even when Beeper doesn't send one, if you have `ffmpeg` installed, and the label shows how long they are. `enter` on a video plays it right in the terminal with sound through `mpv` (space pauses, arrows seek, `q` comes back). In kitty and Ghostty that's the real picture; in tmux, tuios and other terminals mpv draws it as coloured text. Without mpv, the video opens in your default player. Both are optional: `brew install ffmpeg mpv`.
+
 `C-o` while writing picks a file (the Finder dialog on macOS, a folder browser elsewhere), and `:files` always gives the in-app browser.
 
 ## GIFs, memes and more
