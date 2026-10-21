@@ -1,12 +1,19 @@
-# beepertui
+<p align="center"><img src="assets/logo.svg" alt="beepertui" width="460"></p>
 
-A terminal client for Beeper, talking to the Beeper Desktop app on your machine. Vim-ish keys, and flash.nvim-style labels for picking a chat or message to jump to, yank, reply to, react to, edit or delete.
+A terminal client for Beeper, talking to the Beeper Desktop app on your machine. Every network Beeper bridges (WhatsApp, iMessage, Signal, Telegram, Slack, Discord, Instagram and the rest) in one keyboard-driven window, with vim-ish keys and flash.nvim-style labels for jumping to, yanking, replying to, reacting to, editing or deleting anything on screen.
 
-Works with [tuios](https://github.com/Gaurav-Gosain/tuios) themes and looks: the colours come from your terminal palette, so a tuios look restyles it.
+Beeper Desktop does the real work (bridges, encryption). This is just a frontend for its local API on `localhost:23373`, and it starts Desktop for you, hidden, if it isn't running.
 
-Beeper Desktop does the real work (bridges, encryption). This is just a frontend for its local API on `localhost:23373`.
+What's in it:
 
-![beepertui in kitty](assets/demo/screenshot.png)
+- **Two layouts.** `modern` is borderless and quiet, `classic` is boxed panes and coloured pills. `:layout` flips between them.
+- **Themes.** By default it follows your terminal or [tuios](https://github.com/Gaurav-Gosain/tuios) look. Or pick one of a dozen built in, any Neovim colorscheme you have (`nvim:rose-pine`), or your own file. Live preview in `:theme`.
+- **Real images, GIFs and video** in kitty, Ghostty and tuios. GIFs play inline, videos get a poster and play in the terminal with sound through mpv.
+- **A media picker** with GIFs, 200+ meme templates captioned live, reaction GIFs, Emoji Kitchen stickers, cats, xkcd and Reddit, most with no API keys.
+- **Everything Beeper does:** replies with quote cards, reactions by name, mentions, edits, forwarding, search across every network, reminders, read receipts, who reacted and who saw it.
+- **Your keys.** Every bind can be changed with `:keys`, there's an opt-in vim mode inside the compose box, and the mouse works too.
+
+![classic and modern layouts side by side](assets/demo/layouts.png)
 
 | | |
 | --- | --- |
@@ -16,8 +23,8 @@ Beeper Desktop does the real work (bridges, encryption). This is just a frontend
 | Media picker: one search across every source, memes captioned live, reaction GIFs | Stickers, cats, xkcd, status codes and Reddit, no keys needed |
 | ![switching chats](assets/demo/switch.gif) | ![writing and links](assets/demo/compose.gif) |
 | Switching: `cc` fuzzy chat list, `J`/`K`, `c` labels, `C` chat menu | Writing: `@` mentions, multi-line, `:emoji`, `f` link hints, image viewer |
-| ![search and commands](assets/demo/search.gif) | |
-| `/` searches inside a chat and jumps to the match, `:` lists every command | |
+| ![search and commands](assets/demo/search.gif) | ![themes and layouts](assets/demo/themes.gif) |
+| `/` searches inside a chat and jumps to the match, `:` lists every command | `:theme` previews themes live, built-in or from Neovim, and `:layout` swaps the look |
 
 The clips are screen recordings of a real kitty window, made by `demo/kitty-record.sh` (macOS). Everyone in them is made up: the script drives the app against a fake API in `demo/server`. `demo/record.sh` still renders the same scenes with [VHS](https://github.com/charmbracelet/vhs), but VHS can't draw kitty graphics, so images come out as blocks there.
 

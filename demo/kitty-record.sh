@@ -62,7 +62,7 @@ start_scene() {
   "$KITTY" --title beepertui-rec -o allow_remote_control=yes --listen-on "unix:$sock" \
     -o initial_window_width=150c -o initial_window_height=44c -o remember_window_size=no \
     -o confirm_os_window_close=0 -o font_size="${DEMO_FONT_SIZE:-16}" -o hide_window_decorations=titlebar-only \
-    -o window_padding_width=12 \
+    -o window_padding_width=12 -o background_opacity=1 \
     sh -c "PATH=$work/bin:\$PATH XDG_CONFIG_HOME=$work/xdg BEEPERTUI_NERDFONT=1 BEEPER_URL=http://127.0.0.1:23999 BEEPER_ACCESS_TOKEN=demo beepertui" \
     >/dev/null 2>&1 &
   sleep 3.5
@@ -86,7 +86,7 @@ end_scene() {
   wait "$server" 2>/dev/null || true
   # mp4 as recorded, and a gif with its own palette so pictures keep their colours
   ffmpeg -v error -y -i "$work/$scene.mkv" -vf "fps=30,scale=1600:-2:flags=lanczos" -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart "$OUT/$scene.mp4"
-  ffmpeg -v error -y -i "$work/$scene.mkv" -vf "fps=12,scale=1100:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=192:stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle" "$OUT/$scene.gif"
+  ffmpeg -v error -y -i "$work/$scene.mkv" -vf "fps=10,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle" "$OUT/$scene.gif"
   echo "  $(du -h "$OUT/$scene.gif" | cut -f1) gif, $(du -h "$OUT/$scene.mp4" | cut -f1) mp4"
 }
 
@@ -167,7 +167,17 @@ scene_search() {
   end_scene
 }
 
-for scene in ${@:-tour flash switch compose media more search}; do
+scene_themes() {
+  start_scene open_design
+  say ":theme"; key enter; pause 2
+  keys 2 down; pause 1.5; key down; pause 1.5; key down; pause 1.5
+  key ctrl+u; say "rose"; pause 2; key enter; pause 2.5
+  say ":theme"; key enter; pause 1; say "latte"; pause 2.5; key escape; pause 2
+  say ":layout"; key enter; pause 2.5; say ":layout"; key enter; pause 2
+  end_scene
+}
+
+for scene in ${@:-tour flash switch compose media more search themes}; do
   echo "recording $scene"
   "scene_$scene"
 done

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="136" viewBox="0 0 520 136" role="img" aria-labelledby="t">
+  <title id="t">beepertui</title>
+  <style>
+    .ink { fill: #1f2328; }
+    .dim { fill: #6e7781; }
+    .accent { fill: #3b6fe0; }
+    .accent-s { stroke: #3b6fe0; }
+    .bubble { fill: #eef2fb; }
+    .pink { fill: #c2255c; }
+    @media (prefers-color-scheme: dark) {
+      .ink { fill: #e6e9f2; }
+      .dim { fill: #8b93a6; }
+      .accent { fill: #89b4fa; }
+      .accent-s { stroke: #89b4fa; }
+      .bubble { fill: #1c2233; }
+      .pink { fill: #f5c2e7; }
+    }
+    text { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  </style>
+
+  <!-- the mark: a chat bubble with a prompt in it -->
+  <path class="bubble accent-s" stroke-width="5" stroke-linejoin="round"
+        d="M30 10 H102 A22 22 0 0 1 124 32 V78 A22 22 0 0 1 102 100 H52 L26 122 L32 100 H30 A22 22 0 0 1 8 78 V32 A22 22 0 0 1 30 10 Z"/>
+  <path class="accent-s" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" d="M34 40 L52 55 L34 70"/>
+  <rect class="pink" x="62" y="62" width="30" height="9" rx="2">
+    <animate attributeName="opacity" values="1;1;0;0" keyTimes="0;0.5;0.5;1" dur="1.2s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- wordmark -->
+  <text x="150" y="78" font-size="58" font-weight="700" letter-spacing="-1"><tspan class="ink">beeper</tspan><tspan class="accent">tui</tspan></text>
+  <text x="152" y="110" font-size="17" class="dim">every chat, in your terminal</text>
+</svg>
