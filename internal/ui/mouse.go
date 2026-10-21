@@ -102,7 +102,7 @@ func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 		if ms.Y < 2 {
 			return nil
 		}
-		i := m.chatOff + (ms.Y-2)/2
+		i := m.chatOff + (ms.Y-2)/m.chatRowH()
 		if i >= len(m.chats) || i > m.chatOff+m.chatRows()-1 {
 			return nil
 		}
@@ -162,7 +162,7 @@ func (m *Model) rightClick(x, y int) tea.Cmd {
 		return nil
 	}
 	if x < m.chatWidth() {
-		i := m.chatOff + (y-2)/2
+		i := m.chatOff + (y-2)/m.chatRowH()
 		if i >= len(m.chats) || i > m.chatOff+m.chatRows()-1 {
 			return nil
 		}

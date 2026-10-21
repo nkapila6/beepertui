@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"image/color"
 	"slices"
 	"strings"
 	"time"
@@ -149,6 +150,9 @@ type Model struct {
 	keysNote   string     // last change, shown in the :keys footer
 	vim        vimState   // compose box normal mode (vim_compose)
 	vimCompose bool
+	modern     bool        // layout = modern (modern.go)
+	termBg     color.Color // the terminal's own colours, for modern's tints
+	termFg     color.Color
 	live       bool
 	inflight   int
 	status     string
@@ -223,7 +227,7 @@ func poll() tea.Cmd {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.loadChats(), m.loadSelf(), m.waitEvent(), poll())
+	return tea.Batch(m.loadChats(), m.loadSelf(), m.waitEvent(), poll(), m.termColors())
 }
 
 func (m *Model) setStatus(s string) { m.status, m.isErr = s, false }
@@ -239,6 +243,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.fixChatScroll()
 		m.fixMsgScroll()
 		return m, tea.Batch(m.placeImages(), m.placePopup(), m.placeGifPreview(), m.afterResize())
+
+	case tea.BackgroundColorMsg:
+		m.termBg = msg.Color
+		m.deriveTints()
+		return m, nil
+
+	case tea.ForegroundColorMsg:
+		m.termFg = msg.Color
+		m.deriveTints()
+		return m, nil
 
 	case videoDoneMsg:
 		return m, m.afterVideo(msg.err)

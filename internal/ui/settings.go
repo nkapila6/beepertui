@@ -35,6 +35,10 @@ func (m *Model) applySetting(key string) {
 		m.mouse = c.Bool(key)
 	case "notifications":
 		m.notifications = c.Bool(key)
+	case "layout":
+		m.modern = c.String(key) == "modern"
+		modernOn = m.modern
+		buildStyles()
 	case "vim_compose":
 		m.vimCompose = c.Bool(key)
 	case "notification_preview":

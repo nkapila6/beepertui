@@ -145,7 +145,7 @@ beepertui config unset accent
 beepertui config edit                 # opens $EDITOR
 ```
 
-Inside the app, `:set` lists the settings and `:set compact true` changes one live and saves it. You can set `nerd_font`, `images`, `image_size`, `avatars`, `compact`, `mouse`, `notifications`, `chat_width`, `inbox`, `accent`, `gif_provider`, `beeper_url`, `autostart_beeper`, `notification_preview` and `vim_compose`. Env vars like `BEEPERTUI_NERDFONT` still win over the file. Font and font size belong to your terminal, not the app, so set those in kitty/Ghostty/etc.
+Inside the app, `:set` lists the settings and `:set compact true` changes one live and saves it. You can set `nerd_font`, `images`, `image_size`, `avatars`, `compact`, `mouse`, `notifications`, `chat_width`, `inbox`, `accent`, `gif_provider`, `beeper_url`, `autostart_beeper`, `notification_preview`, `vim_compose` and `layout`. Env vars like `BEEPERTUI_NERDFONT` still win over the file. Font and font size belong to your terminal, not the app, so set those in kitty/Ghostty/etc.
 
 ### Vim in the compose box
 
@@ -163,6 +163,11 @@ key.top = "g g, home"     # "g g" means two presses
 `beepertui config keys` prints every action with its keys, and `beepertui config set key.reply "ctrl+t"` works too (it warns if the key clashes with something). The help screen and the hints by the compose box follow whatever you set.
 
 ## Looks
+
+There are two layouts. `modern` (the default) has no boxes: a hairline between the chat list and the conversation, a soft band behind whatever is selected, coloured initials beside each sender, and one quiet status line with the keys for wherever you are. `classic` is the original look, with rounded panes and coloured pills. Switch with `:layout`, or `beepertui config set layout classic`.
+
+Modern's soft shades are mixed from your terminal's own background and text colours, which it asks the terminal for at startup, so they follow your theme, light or dark, and tuios looks. If a terminal doesn't answer, it falls back to the plain palette.
+
 
 Senders get their own colour, days get a divider, and there's a `── new ──` line where you left off. Your messages show a ✓ when sent and ✓✓ once seen. Your latest message always says who's seen it (`seen by Gaurav, CSK · 2 of 3`), any of yours shows the same when you scroll onto it, and hovering the ✓✓ lists everyone with times. Replies carry a quote card of what they answer, in the quoted person's colour, and your own say `you replied to <name>` so it's clear who's answering whom. Chats show their avatar: the real one in Ghostty and kitty, coloured initials elsewhere.
 

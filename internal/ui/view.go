@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"net/url"
 	"strings"
 	"time"
@@ -42,7 +43,15 @@ func (m *Model) msgWidth() int     { return max(20, m.w-m.chatWidth()) }
 
 // chat list scrolling, two rows per chat
 
-func (m *Model) chatRows() int { return max(1, m.bodyHeight()/2) }
+func (m *Model) chatRows() int { return max(1, m.bodyHeight()/m.chatRowH()) }
+
+// chatRowH is how many lines a chat takes: modern leaves a blank one between chats.
+func (m *Model) chatRowH() int {
+	if m.modern {
+		return 3
+	}
+	return 2
+}
 
 func (m *Model) chatRange() (int, int) {
 	return m.chatOff, min(len(m.chats)-1, m.chatOff+m.chatRows()-1)
@@ -143,12 +152,18 @@ func (m *Model) render() string {
 	case modeGif:
 		body = m.renderGif()
 	default:
-		msgs := titledPane(m.paneStyle(paneMsgs), m.msgWidth(), m.bodyHeight()+2, m.msgsTitle(), m.renderMsgs())
+		pane := func(p pane, w int, title, content string) string {
+			if m.modern {
+				return m.modernPane(p, w, m.bodyHeight(), title, content)
+			}
+			return titledPane(m.paneStyle(p), w, m.bodyHeight()+2, title, content)
+		}
+		msgs := pane(paneMsgs, m.msgWidth(), m.msgsTitle(), m.renderMsgs())
 		if m.chatsHidden() {
 			body = msgs
 			break
 		}
-		chats := titledPane(m.paneStyle(paneChats), m.chatWidth(), m.bodyHeight()+2, m.chatsTitle(), m.renderChats())
+		chats := pane(paneChats, m.chatWidth(), m.chatsTitle(), m.renderChats())
 		body = lipgloss.JoinHorizontal(lipgloss.Top, chats, msgs)
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, m.renderHeader(), body, m.renderCompose(), m.renderStatus())
@@ -162,6 +177,9 @@ func (m *Model) paneStyle(p pane) lipgloss.Style {
 }
 
 func (m *Model) renderHeader() string {
+	if m.modern {
+		return m.modernHeader()
+	}
 	parts := []string{stAccent.Bold(true).Render(" beeper ")}
 	for i, n := range inboxes {
 		if i == m.inbox {
@@ -186,6 +204,9 @@ func (m *Model) renderHeader() string {
 }
 
 func (m *Model) chatsTitle() string {
+	if m.modern {
+		return m.modernChatsTitle()
+	}
 	st := stDim
 	if m.focus == paneChats {
 		st = stAccent.Bold(true)
@@ -204,6 +225,9 @@ func (m *Model) chatsTitle() string {
 }
 
 func (m *Model) msgsTitle() string {
+	if m.modern {
+		return m.modernMsgsTitle()
+	}
 	if m.cur == nil {
 		return stDim.Render("Messages")
 	}
@@ -236,7 +260,9 @@ func (m *Model) renderChats() string {
 				if st.GetForeground() == colMuted {
 					st = st.Foreground(colText)
 				}
-				st = st.Background(colSel)
+				if bg := m.selBg(); bg != nil {
+					st = st.Background(bg)
+				}
 			}
 			return st.Render(s)
 		}
@@ -268,7 +294,11 @@ func (m *Model) renderChats() string {
 			if n > 0 {
 				badge = fmt.Sprintf(" %d ", n)
 			}
-			rs = stUnread.Render(badge) + paint(plain, " ") + rs
+			if m.modern {
+				rs = paint(stAccent.Bold(true), strings.TrimSpace(badge)) + paint(plain, " ") + rs
+			} else {
+				rs = stUnread.Render(badge) + paint(plain, " ") + rs
+			}
 		}
 		// avatar column, 4 wide plus a space, when enabled
 		av := [2]string{"", ""}
@@ -317,6 +347,9 @@ func (m *Model) renderChats() string {
 		l2 := paint(plain, "  ") + av[1] + paint(stDim, padRight(truncate(prev, pw), pw)+" "+ts)
 
 		rows = append(rows, l1, l2)
+		if m.modern && i < last {
+			rows = append(rows, "")
+		}
 	}
 	return strings.Join(rows, "\n")
 }
@@ -390,7 +423,11 @@ func (m *Model) renderMsgs() string {
 		case r.idx == m.msgCur && m.focus == paneMsgs && !r.lead:
 			g = stCursor.Render("▌") + "  "
 		}
-		out = append(out, g+r.text)
+		line := g + r.text
+		if m.modern && r.idx == m.msgCur && m.focus == paneMsgs && !r.lead && m.mode != modeFlash {
+			line = withBg(line, m.msgWidth()-2, colWash)
+		}
+		out = append(out, line)
 	}
 	return strings.Join(out, "\n")
 }
@@ -418,14 +455,24 @@ const (
 // for mouse hover.
 func (m *Model) msgBlockParts(i int) (lines []string, pre int, kinds []lineKind) {
 	msg := m.msgs[i]
-	w := m.msgTextWidth()
+	full := m.msgTextWidth()
+	w := full
+	if m.modern {
+		w = full - len(chipIndent) // the body sits under the name, past the chip
+	}
+	dayRule := func(label string, st lipgloss.Style) string {
+		if m.modern {
+			return modernDayRule(label, full, st)
+		}
+		return rule(label, full, st)
+	}
 
 	newDay := i == 0 || !sameDay(m.msgs[i-1].Timestamp, msg.Timestamp)
 	if newDay {
-		lines = append(lines, rule(dayLabel(msg.Timestamp), w, stDim))
+		lines = append(lines, dayRule(dayLabel(msg.Timestamp), stDim))
 	}
 	if i == m.newMarker() {
-		lines = append(lines, rule("new", w, lipgloss.NewStyle().Foreground(colErr).Bold(true)))
+		lines = append(lines, dayRule("new", lipgloss.NewStyle().Foreground(colErr).Bold(true)))
 	}
 
 	var quoted *beeper.Message
@@ -448,7 +495,9 @@ func (m *Model) msgBlockParts(i int) (lines []string, pre int, kinds []lineKind)
 		lines = append(lines, "")
 	}
 	pre = len(lines)
+	header := -1
 	if showHeader {
+		header = len(lines)
 		who := firstNonEmpty(msg.SenderName, msg.SenderID)
 		if msg.IsSender {
 			who = "you"
@@ -555,6 +604,16 @@ func (m *Model) msgBlockParts(i int) (lines []string, pre int, kinds []lineKind)
 		}
 	}
 
+	if m.modern {
+		for j := pre; j < len(lines); j++ {
+			if j == header {
+				lines[j] = senderChip(msg) + " " + lines[j]
+			} else {
+				lines[j] = chipIndent + lines[j]
+			}
+		}
+	}
+
 	kinds = make([]lineKind, len(lines))
 	for j := range kinds {
 		switch {
@@ -572,6 +631,9 @@ func (m *Model) msgBlockParts(i int) (lines []string, pre int, kinds []lineKind)
 }
 
 func (m *Model) renderCompose() string {
+	if m.modern {
+		return m.modernCompose()
+	}
 	w := m.msgWidth()
 	cw := m.chatWidth()
 	var banner string
@@ -617,6 +679,9 @@ func (m *Model) renderCompose() string {
 }
 
 func (m *Model) renderStatus() string {
+	if m.modern {
+		return m.modernStatus()
+	}
 	var mode lipgloss.Style
 	var name string
 	switch m.mode {
@@ -912,4 +977,13 @@ func (m *Model) setChatsHidden(hide bool) tea.Cmd {
 func (m *Model) relayout() tea.Cmd {
 	w, h := m.w, m.h
 	return func() tea.Msg { return tea.WindowSizeMsg{Width: w, Height: h} }
+}
+
+// selBg is the selected chat row's background: a soft wash in modern, the
+// palette's grey in classic.
+func (m *Model) selBg() color.Color {
+	if m.modern {
+		return colWash
+	}
+	return colSel
 }

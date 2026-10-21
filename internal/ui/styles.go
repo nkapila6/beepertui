@@ -53,6 +53,9 @@ func buildStyles() {
 	stOverlay = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colAccent).Padding(0, 1)
 	stUnread = pill(colAccent)
 	stReaction = lipgloss.NewStyle().Foreground(colText).Background(colSel)
+	if modernOn && colChip != nil {
+		stReaction = stReaction.Background(colChip)
+	}
 	stReactionMine = pill(colAccent).Bold(false)
 }
 
