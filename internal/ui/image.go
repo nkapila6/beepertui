@@ -294,7 +294,7 @@ func (m *Model) placeImages() tea.Cmd {
 	if m.imageMode != imagesKitty {
 		return nil
 	}
-	w := m.msgTextWidth()
+	w := m.imageWidth()
 	var b strings.Builder
 	for _, t := range m.thumbs {
 		if !t.sent {
@@ -409,7 +409,7 @@ func (m *Model) afterResize() tea.Cmd {
 
 func (m *Model) resendImages() tea.Cmd {
 	var b strings.Builder
-	w := m.msgTextWidth()
+	w := m.imageWidth()
 	for _, t := range m.thumbs {
 		if !t.sent || len(t.png) == 0 {
 			continue
@@ -428,4 +428,13 @@ func (m *Model) resendImages() tea.Cmd {
 		return nil
 	}
 	return tea.Sequence(tea.Raw(b.String()), m.placePopup())
+}
+
+// imageWidth is the widest an inline image may be: the message text width,
+// less modern's indent under the sender name.
+func (m *Model) imageWidth() int {
+	if m.modern {
+		return m.msgTextWidth() - len(chipIndent)
+	}
+	return m.msgTextWidth()
 }
