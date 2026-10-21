@@ -144,6 +144,10 @@ func (m *Model) render() string {
 	var body string
 	switch m.mode {
 	case modePicker:
+		if m.pick.floating {
+			body = m.panes()
+			break
+		}
 		body = m.renderPicker()
 	case modeHelp:
 		body = m.renderHelp()
@@ -152,19 +156,7 @@ func (m *Model) render() string {
 	case modeGif:
 		body = m.renderGif()
 	default:
-		pane := func(p pane, w int, title, content string) string {
-			if m.modern {
-				return m.modernPane(p, w, m.bodyHeight(), title, content)
-			}
-			return titledPane(m.paneStyle(p), w, m.bodyHeight()+2, title, content)
-		}
-		msgs := pane(paneMsgs, m.msgWidth(), m.msgsTitle(), m.renderMsgs())
-		if m.chatsHidden() {
-			body = msgs
-			break
-		}
-		chats := pane(paneChats, m.chatWidth(), m.chatsTitle(), m.renderChats())
-		body = lipgloss.JoinHorizontal(lipgloss.Top, chats, msgs)
+		body = m.panes()
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, m.renderHeader(), body, m.renderCompose(), m.renderStatus())
 }
@@ -800,12 +792,23 @@ func (m *Model) overlayBox(title string, lines []string) string {
 }
 
 func (m *Model) renderPicker() string {
-	maxRows := max(1, m.bodyHeight()-6)
+	return m.overlayBox(m.pick.title, m.pickerLines(max(1, m.bodyHeight()-6), min(m.w-4, 90)-6))
+}
+
+// floatingPicker is a compact picker box drawn over the normal screen, for
+// pickers whose choice changes the screen itself (themes), so you see it.
+func (m *Model) floatingPicker() *lipgloss.Layer {
+	w := min(48, m.w-4)
+	lines := m.pickerLines(min(14, max(3, m.bodyHeight()-8)), w-4)
+	box := stOverlay.Width(w).Render(stBold.Render(m.pick.title) + "\n\n" + strings.Join(lines, "\n"))
+	return lipgloss.NewLayer(box).X(max(0, m.w-w-2)).Y(2).Z(2)
+}
+
+func (m *Model) pickerLines(maxRows, w int) []string {
 	start := 0
 	if m.pick.cur >= maxRows {
 		start = m.pick.cur - maxRows + 1
 	}
-	w := min(m.w-4, 90) - 6
 	tw := 0
 	for _, i := range m.pick.shown {
 		tw = max(tw, lipgloss.Width(m.pick.items[i].title))
@@ -831,10 +834,10 @@ func (m *Model) renderPicker() string {
 	}
 	if m.pick.footer != nil {
 		if f := m.pick.footer(m.line.Value()); f != "" {
-			lines = append(lines, "", stAccent.Render("  "+f))
+			lines = append(lines, "", stAccent.Render("  "+truncate(f, w)))
 		}
 	}
-	return m.overlayBox(m.pick.title, lines)
+	return lines
 }
 
 // linkPreview is the little card under a message with a link, like Beeper's.
@@ -986,4 +989,20 @@ func (m *Model) selBg() color.Color {
 		return colWash
 	}
 	return colSel
+}
+
+// panes is the chat list and the conversation side by side.
+func (m *Model) panes() string {
+	pane := func(p pane, w int, title, content string) string {
+		if m.modern {
+			return m.modernPane(p, w, m.bodyHeight(), title, content)
+		}
+		return titledPane(m.paneStyle(p), w, m.bodyHeight()+2, title, content)
+	}
+	msgs := pane(paneMsgs, m.msgWidth(), m.msgsTitle(), m.renderMsgs())
+	if m.chatsHidden() {
+		return msgs
+	}
+	chats := pane(paneChats, m.chatWidth(), m.chatsTitle(), m.renderChats())
+	return lipgloss.JoinHorizontal(lipgloss.Top, chats, msgs)
 }

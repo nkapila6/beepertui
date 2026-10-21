@@ -112,7 +112,7 @@ func (m *Model) themePicker() tea.Cmd {
 		}
 		items = append(items, pickItem{title: n, detail: detail, value: themeItem{n, true}})
 	}
-	m.openPicker("themes   moving previews · enter keeps · esc goes back", items, func(m *Model, it pickItem) tea.Cmd {
+	m.openPicker("themes · enter keeps · esc goes back", items, func(m *Model, it pickItem) tea.Cmd {
 		return m.setSetting("theme " + it.value.(themeItem).name)
 	})
 	for i, it := range m.pick.items {
@@ -131,6 +131,7 @@ func (m *Model) themePicker() tea.Cmd {
 		return m.applyTheme(ti.name)
 	}
 	m.pick.onMove = preview
+	m.pick.floating = true
 	m.pick.onKey = func(m *Model, key string) (bool, tea.Cmd) {
 		if key == "esc" {
 			m.closePicker()

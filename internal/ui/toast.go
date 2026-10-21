@@ -88,6 +88,9 @@ func (m *Model) withOverlays(frame string) string {
 		x := max(0, m.w-lipgloss.Width(box)-1)
 		layers = append(layers, lipgloss.NewLayer(box).X(x).Y(1).Z(1))
 	}
+	if m.mode == modePicker && m.pick.floating {
+		layers = append(layers, m.floatingPicker())
+	}
 	layers = append(layers, m.hintLayers()...)
 	layers = append(layers, m.menuLayers()...)
 	layers = append(layers, m.paletteLayers()...)

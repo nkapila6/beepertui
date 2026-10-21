@@ -22,7 +22,10 @@ type picker struct {
 	onKey  func(*Model, string) (bool, tea.Cmd) // runs before normal handling
 	onRaw  func(*Model, string) tea.Cmd         // enter with no matches
 	onMove func(*Model) tea.Cmd                 // after the cursor or filter changes
-	footer func(q string) string
+	// floating draws a small box over the normal screen instead of taking
+	// the body over, for choices you want to see applied (themes)
+	floating bool
+	footer   func(q string) string
 }
 
 // openPicker shows a filterable list. Typing filters, arrows or ctrl+j/k move, enter picks.
