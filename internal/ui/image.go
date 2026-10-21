@@ -9,12 +9,16 @@ import (
 	"image/color"
 	_ "image/gif"
 	_ "image/jpeg"
-	_ "image/png"
+	"image/png"
 	"net/url"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
+
+	xdraw "golang.org/x/image/draw"
+	_ "golang.org/x/image/webp"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -201,8 +205,9 @@ func (m *Model) loadThumbs() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// shrinkPNG uses sips (ships with macOS, reads HEIC/WebP/TIFF/...) to make a
-// PNG no bigger than maxPx on its long side.
+// shrinkPNG makes a PNG no bigger than maxPx on its long side. It prefers sips
+// (ships with macOS, reads HEIC/TIFF/...) and falls back to decoding in Go
+// elsewhere, since kitty is told f=100 and only accepts real PNG bytes.
 func shrinkPNG(ctx context.Context, path, maxPx string) ([]byte, int, int, error) {
 	tmp, err := os.CreateTemp("", "beepertui-thumb-*.png")
 	if err != nil {
@@ -210,19 +215,42 @@ func shrinkPNG(ctx context.Context, path, maxPx string) ([]byte, int, int, error
 	}
 	tmp.Close()
 	defer os.Remove(tmp.Name())
-	src := path
 	if exec.CommandContext(ctx, "sips", "-s", "format", "png", "-Z", maxPx, path, "--out", tmp.Name()).Run() == nil {
-		src = tmp.Name()
+		if b, err := os.ReadFile(tmp.Name()); err == nil {
+			if cfg, err := png.DecodeConfig(bytes.NewReader(b)); err == nil {
+				return b, cfg.Width, cfg.Height, nil
+			}
+		}
 	}
-	b, err := os.ReadFile(src)
+	px, err := strconv.Atoi(maxPx)
 	if err != nil {
 		return nil, 0, 0, err
 	}
-	cfg, _, err := image.DecodeConfig(bytes.NewReader(b))
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, 0, 0, err
 	}
-	return b, cfg.Width, cfg.Height, nil
+	defer f.Close()
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	if w > px || h > px {
+		if w >= h {
+			w, h = px, max(1, h*px/w)
+		} else {
+			w, h = max(1, w*px/h), px
+		}
+		dst := image.NewRGBA(image.Rect(0, 0, w, h))
+		xdraw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), xdraw.Src, nil)
+		img = dst
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, 0, 0, err
+	}
+	return buf.Bytes(), w, h, nil
 }
 
 func (m *Model) localPath(ctx context.Context, src string) (string, error) {
