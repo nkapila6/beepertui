@@ -244,6 +244,10 @@ func (m *Model) renderChats() string {
 	for i := first; i <= last; i++ {
 		ch := m.chats[i]
 		sel := i == m.chatCur && m.focus == paneChats
+		// modern keeps the open chat banded while you read it, so the list shows where you are
+		if m.modern && m.focus != paneChats && m.cur != nil && ch.ID == m.cur.ID {
+			sel = true
+		}
 		// background has to go on every piece; wrapping styled text in another
 		// style doesn't work because each piece resets it
 		paint := func(st lipgloss.Style, s string) string {
@@ -297,6 +301,12 @@ func (m *Model) renderChats() string {
 		aw := 0
 		if m.showAvatars {
 			av = m.avatarLines(ch)
+			if sel && m.modern {
+				// the band runs under the avatar too, not around it
+				for k := range av {
+					av[k] = withBg(av[k], avatarCols, m.selBg())
+				}
+			}
 			av[0] += paint(plain, " ")
 			av[1] += paint(plain, " ")
 			aw = avatarCols + 1

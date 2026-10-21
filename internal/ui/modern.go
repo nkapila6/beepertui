@@ -47,7 +47,7 @@ func (m *Model) deriveTints() {
 			fg = color.Black
 		}
 	}
-	colWash = mixColor(m.termBg, fg, 0.07)
+	colWash = mixColor(m.termBg, fg, 0.11)
 	colChip = mixColor(m.termBg, fg, 0.14)
 	colHair = mixColor(m.termBg, fg, 0.20)
 	buildStyles()
