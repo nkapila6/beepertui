@@ -153,6 +153,7 @@ type Model struct {
 	modern     bool        // layout = modern (modern.go)
 	termBg     color.Color // the terminal's own colours, for modern's tints
 	termFg     color.Color
+	themed     bool // a theme repainted the terminal; reset it on exit
 	live       bool
 	inflight   int
 	status     string
@@ -227,7 +228,7 @@ func poll() tea.Cmd {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.loadChats(), m.loadSelf(), m.waitEvent(), poll(), m.termColors())
+	return tea.Batch(m.loadChats(), m.loadSelf(), m.waitEvent(), poll(), m.termColors(), m.applyTheme(m.cfg.String("theme")))
 }
 
 func (m *Model) setStatus(s string) { m.status, m.isErr = s, false }
@@ -245,11 +246,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.placeImages(), m.placePopup(), m.placeGifPreview(), m.afterResize())
 
 	case tea.BackgroundColorMsg:
+		if m.themed {
+			return m, nil // the theme's colours win over a late answer
+		}
 		m.termBg = msg.Color
 		m.deriveTints()
 		return m, nil
 
 	case tea.ForegroundColorMsg:
+		if m.themed {
+			return m, nil
+		}
 		m.termFg = msg.Color
 		m.deriveTints()
 		return m, nil

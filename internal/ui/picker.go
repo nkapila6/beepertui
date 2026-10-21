@@ -21,6 +21,7 @@ type picker struct {
 	match  func(it pickItem, q string) bool     // nil means substring
 	onKey  func(*Model, string) (bool, tea.Cmd) // runs before normal handling
 	onRaw  func(*Model, string) tea.Cmd         // enter with no matches
+	onMove func(*Model) tea.Cmd                 // after the cursor or filter changes
 	footer func(q string) string
 }
 
@@ -63,10 +64,10 @@ func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 		return nil
 	case "up", "ctrl+k", "ctrl+p":
 		m.pick.cur = clamp(m.pick.cur-1, 0, len(m.pick.shown)-1)
-		return nil
+		return m.pickMoved()
 	case "down", "ctrl+j", "ctrl+n":
 		m.pick.cur = clamp(m.pick.cur+1, 0, len(m.pick.shown)-1)
-		return nil
+		return m.pickMoved()
 	case "enter":
 		m.closePicker()
 		if len(m.pick.shown) == 0 && m.pick.onRaw != nil {
@@ -80,5 +81,12 @@ func (m *Model) pickerKey(k tea.KeyPressMsg) tea.Cmd {
 	var cmd tea.Cmd
 	m.line, cmd = m.line.Update(k)
 	m.refilter()
-	return cmd
+	return tea.Batch(cmd, m.pickMoved())
+}
+
+func (m *Model) pickMoved() tea.Cmd {
+	if m.pick.onMove == nil {
+		return nil
+	}
+	return m.pick.onMove(m)
 }

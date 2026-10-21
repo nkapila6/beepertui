@@ -79,6 +79,10 @@ func (m *Model) setSetting(arg string) tea.Cmd {
 		m.setErr("applied, but couldn't save: " + err.Error())
 	}
 	m.applySetting(key)
+	var themeCmd tea.Cmd
+	if key == "theme" {
+		themeCmd = m.applyTheme(val)
+	}
 	m.fixChatScroll()
 	m.fixMsgScroll()
 	note := ""
@@ -86,7 +90,7 @@ func (m *Model) setSetting(arg string) tea.Cmd {
 		note = fmt.Sprintf(" (but %s overrides it)", src)
 	}
 	m.setStatus(fmt.Sprintf("%s = %s, saved to %s%s", key, val, config.Path(), note))
-	return tea.Batch(m.loadThumbs(), m.loadAvatars(), m.placeImages(), m.loadChats())
+	return tea.Batch(themeCmd, m.loadThumbs(), m.loadAvatars(), m.placeImages(), m.loadChats())
 }
 
 // settingsPicker lists every setting with its value; enter asks for a new one.

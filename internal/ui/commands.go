@@ -218,6 +218,13 @@ func init() {
 		{"label", "[name|none]", "filter inbox by label", func(m *Model, arg string) tea.Cmd { return m.cmdLabel(arg) }},
 		{"accounts", "", "list connected accounts", func(m *Model, _ string) tea.Cmd { return m.cmdAccounts() }},
 		{"keys", "", "change key binds (saved to config)", func(m *Model, _ string) tea.Cmd { m.keysPanel(); return m.line.Focus() }},
+		{"theme", "[name|refresh]", "pick a colour theme: built-ins, your files, any nvim colorscheme (saved to config)", func(m *Model, arg string) tea.Cmd {
+			cmd := m.cmdTheme(arg)
+			if m.mode == modePicker {
+				return tea.Batch(cmd, m.line.Focus())
+			}
+			return cmd
+		}},
 		{"layout", "[modern|classic]", "switch the look (saved to config)", func(m *Model, arg string) tea.Cmd {
 			if arg == "" {
 				arg = "modern"

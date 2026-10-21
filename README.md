@@ -145,7 +145,7 @@ beepertui config unset accent
 beepertui config edit                 # opens $EDITOR
 ```
 
-Inside the app, `:set` lists the settings and `:set compact true` changes one live and saves it. You can set `nerd_font`, `images`, `image_size`, `avatars`, `compact`, `mouse`, `notifications`, `chat_width`, `inbox`, `accent`, `gif_provider`, `beeper_url`, `autostart_beeper`, `notification_preview`, `vim_compose` and `layout`. Env vars like `BEEPERTUI_NERDFONT` still win over the file. Font and font size belong to your terminal, not the app, so set those in kitty/Ghostty/etc.
+Inside the app, `:set` lists the settings and `:set compact true` changes one live and saves it. You can set `nerd_font`, `images`, `image_size`, `avatars`, `compact`, `mouse`, `notifications`, `chat_width`, `inbox`, `accent`, `gif_provider`, `beeper_url`, `autostart_beeper`, `notification_preview`, `vim_compose`, `layout` and `theme`. Env vars like `BEEPERTUI_NERDFONT` still win over the file. Font and font size belong to your terminal, not the app, so set those in kitty/Ghostty/etc.
 
 ### Vim in the compose box
 
@@ -173,7 +173,18 @@ Senders get their own colour, days get a divider, and there's a `── new ─�
 
 With a [Nerd Font](https://www.nerdfonts.com) installed, set `BEEPERTUI_NERDFONT=1` (or `:icons on`) to get network logos, nicer status icons and a lualine-style status line. `:avatars`, `:compact` and `:images` toggle the rest.
 
-## Themes and tuios
+## Themes
+
+By default beepertui uses your terminal's colours. `:theme` picks something else: moving through the list previews each one live, `enter` keeps it, `esc` puts the old one back. The list has:
+
+- `terminal`, your own colours (the default)
+- built-ins: `catppuccin-mocha`, `catppuccin-latte`, `tokyonight`, `gruvbox`, `gruvbox-light`, `nord`, `rose-pine`, `kanagawa`, `dracula`, `everforest`, `one-dark`, `solarized-dark`
+- every Neovim colorscheme you have installed, as `nvim:<name>`. beepertui runs nvim headless with your config, reads the scheme's colours, and saves them to `~/.config/beepertui/themes/`, so it only needs nvim the first time. `:theme refresh` imports it again after you update the plugin.
+- your own: drop a `.toml` with `bg`, `fg` and `color0` to `color15` (as `"#rrggbb"`) in that folder
+
+Or set it directly: `beepertui config set theme nvim:rose-pine`. A theme repaints the terminal's palette while beepertui runs and puts yours back when you quit, so everything, both layouts included, follows it.
+
+### tuios
 
 tuios colours and looks are supported. There are no hardcoded colours. Everything uses your terminal's 16 ANSI colours and its default text colour, so it picks up whatever theme you run, light ones included. That makes it tuios compatible: apply a look (`tuios look apply tuios.dev/r/19000274`) and the app restyles with it. Inline images work inside tuios too. tuios forwards kitty Unicode placeholders and tells panes they're on Ghostty when the host terminal can draw them, so you get real images in a tuios pane on Ghostty or kitty, and half-block thumbnails otherwise.
 

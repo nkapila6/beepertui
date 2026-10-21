@@ -40,6 +40,7 @@ var Settings = []Setting{
 	{Key: "accent", Default: "blue", Kind: "color", Help: "accent colour: a palette name (blue, cyan, magenta...), 0-15, or #hex"},
 	{Key: "gif_provider", Default: "auto", Kind: "choice", Choices: []string{"auto", "klipy", "giphy", "memegen"}, Help: "GIF search: auto uses whichever key is set (BEEPERTUI_KLIPY_KEY / BEEPERTUI_GIPHY_KEY), else free memegen.link memes"},
 	{Key: "beeper_url", Default: "http://localhost:23373", Kind: "string", Env: "BEEPER_URL", Help: "Beeper Desktop API address"},
+	{Key: "theme", Default: "terminal", Kind: "string", Env: "BEEPERTUI_THEME", Help: "colours: terminal (your own), a built-in like catppuccin-mocha, nvim:<colorscheme>, or a file in themes/ (:theme picks)"},
 	{Key: "layout", Default: "modern", Kind: "choice", Choices: []string{"modern", "classic"}, Help: "modern: borderless and quiet; classic: boxed panes and coloured pills"},
 	{Key: "vim_compose", Default: "false", Kind: "bool", Help: "vim normal mode in the compose box: esc goes there instead of leaving, esc again leaves"},
 	{Key: "autostart_beeper", Default: "true", Kind: "bool", Env: "BEEPERTUI_AUTOSTART", Help: "start Beeper Desktop hidden in the background when it isn't running"},

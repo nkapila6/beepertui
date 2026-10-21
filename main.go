@@ -18,6 +18,7 @@ import (
 	"github.com/nkapila6/beepertui/internal/auth"
 	"github.com/nkapila6/beepertui/internal/beeper"
 	"github.com/nkapila6/beepertui/internal/config"
+	"github.com/nkapila6/beepertui/internal/theme"
 	"github.com/nkapila6/beepertui/internal/ui"
 )
 
@@ -112,6 +113,12 @@ func main() {
 
 	m := ui.New(beeper.NewClient(base, token), cfg)
 	defer m.Close()
+	// a theme repainted the terminal's colours; give them back
+	defer func() {
+		if m.Themed() {
+			os.Stdout.WriteString(theme.Reset())
+		}
+	}()
 	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fail(err)
 	}
