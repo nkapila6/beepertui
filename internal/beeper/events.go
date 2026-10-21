@@ -20,6 +20,14 @@ type Event struct {
 // the UI should refetch whatever it shows when it sees this.
 const EventReconnected = "reconnected"
 
+// EventConnected and EventDisconnected are synthetic too: the socket is up
+// (subscribed) or has dropped, so the UI can say live or polling right away
+// instead of waiting for someone to message you.
+const (
+	EventConnected    = "connected"
+	EventDisconnected = "disconnected"
+)
+
 // Stream keeps a websocket open to /v1/ws and pushes events until ctx ends.
 // It reconnects with backoff on its own.
 func (c *Client) Stream(ctx context.Context, out chan<- Event) {
@@ -28,6 +36,11 @@ func (c *Client) Stream(ctx context.Context, out chan<- Event) {
 	for ctx.Err() == nil {
 		err := c.streamOnce(ctx, out, !first)
 		if ctx.Err() != nil {
+			return
+		}
+		select {
+		case out <- Event{Type: EventDisconnected}:
+		case <-ctx.Done():
 			return
 		}
 		first = false
@@ -69,6 +82,7 @@ func (c *Client) streamOnce(ctx context.Context, out chan<- Event, reconnect boo
 			if err := conn.Write(ctx, websocket.MessageText, sub); err != nil {
 				return err
 			}
+			out <- Event{Type: EventConnected}
 			if reconnect {
 				out <- Event{Type: EventReconnected}
 			}

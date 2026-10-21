@@ -300,7 +300,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case eventMsg:
-		m.live = true
+		m.live = beeper.Event(msg).Type != beeper.EventDisconnected
 		return m, tea.Batch(m.waitEvent(), m.onEvent(beeper.Event(msg)))
 
 	case pollMsg:
@@ -373,6 +373,8 @@ func (m *Model) onEvent(ev beeper.Event) tea.Cmd {
 	wantChats := !m.reloadChat
 	wantMsgs := false
 	switch ev.Type {
+	case beeper.EventConnected, beeper.EventDisconnected:
+		return nil // just the live/polling dot
 	case beeper.EventReconnected:
 		wantMsgs = m.cur != nil
 	case "message.upserted", "message.deleted":

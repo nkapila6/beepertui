@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -24,6 +25,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/coder/websocket"
 )
 
 type obj = map[string]any
@@ -180,6 +183,32 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(v)
 	}
+	// the live socket, so the app shows "live" like it does with real Beeper.
+	// It sits outside the big lock, since the connection stays open.
+	http.HandleFunc("/v1/ws", func(w http.ResponseWriter, r *http.Request) {
+		c, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer c.CloseNow()
+		ctx := r.Context()
+		if c.Write(ctx, websocket.MessageText, []byte(`{"type":"ready"}`)) != nil {
+			return
+		}
+		wsMu.Lock()
+		sockets[c] = true
+		wsMu.Unlock()
+		defer func() {
+			wsMu.Lock()
+			delete(sockets, c)
+			wsMu.Unlock()
+		}()
+		for {
+			if _, _, err := c.Read(ctx); err != nil {
+				return
+			}
+		}
+	})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -244,6 +273,7 @@ func main() {
 			add := func() {
 				msg(parts[2], "", "", 0, mdLinks.ReplaceAllString(body.Text, `<a href="$2">$1</a>`), extra)
 				bump(parts[2])
+				push("message.upserted", parts[2])
 			}
 			if *delay > 0 {
 				go func() {
@@ -331,6 +361,7 @@ func main() {
 			q := r.URL.Query()
 			msg(q.Get("chat"), q.Get("from"), q.Get("name"), 0, q.Get("text"), nil)
 			bump(q.Get("chat"))
+			push("message.upserted", q.Get("chat"))
 			for _, c := range chats {
 				if c["id"] == q.Get("chat") {
 					c["unreadCount"] = c["unreadCount"].(int) + 1
@@ -445,4 +476,23 @@ func makePartyGIF() string {
 		log.Fatal(err)
 	}
 	return f.Name()
+}
+
+var (
+	wsMu    sync.Mutex
+	sockets = map[*websocket.Conn]bool{}
+)
+
+// push tells every connected app that something changed in a chat.
+func push(typ, chatID string) {
+	ev, _ := json.Marshal(obj{"type": typ, "chatID": chatID})
+	wsMu.Lock()
+	defer wsMu.Unlock()
+	for c := range sockets {
+		go func(c *websocket.Conn) {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			c.Write(ctx, websocket.MessageText, ev)
+		}(c)
+	}
 }
